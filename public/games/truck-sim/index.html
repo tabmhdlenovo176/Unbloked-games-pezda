@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Truck Simulator</title>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+        body {
+            background-color: #030712;
+            color: #f3f4f6;
+            font-family: 'JetBrains Mono', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            padding: 10px;
+        }
+        .container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        h1 {
+            font-size: 20px;
+            color: #10b981;
+            text-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+            text-transform: uppercase;
+        }
+        .hud {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 2px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        .hud-row {
+            display: flex;
+            gap: 15px;
+        }
+        .highlight {
+            color: #10b981;
+        }
+        #jobSign {
+            font-size: 11px;
+            letter-spacing: 0.5px;
+            color: #f59e0b;
+            text-transform: uppercase;
+        }
+        #canvasContainer {
+            width: 100%;
+            aspect-ratio: 4 / 3;
+            background-color: #0b0f19;
+            border: 3px solid #10b981;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+        }
+        .overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(11, 15, 25, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            text-align: center;
+            padding: 20px;
+            border-radius: 6px;
+        }
+        .overlay h2 {
+            color: #10b981;
+            font-size: 24px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+        .overlay p {
+            font-size: 11px;
+            color: #9ca3af;
+            margin-bottom: 18px;
+            max-width: 280px;
+            line-height: 1.4;
+        }
+        .btn {
+            background-color: #10b981;
+            color: #030712;
+            border: none;
+            padding: 10px 20px;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .btn:hover {
+            background-color: #34d399;
+            transform: scale(1.05);
+        }
+        .controls-hint {
+            margin-top: 10px;
+            font-size: 11px;
+            color: #6b7280;
+            text-align: center;
+        }
+        .mobile-controls {
+            display: none;
+            width: 100%;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+        @media (max-width: 768px) {
+            .mobile-controls {
+                display: grid;
+            }
+        }
+        .ctrl-btn {
+            background-color: #111827;
+            border: 1px solid #1f2937;
+            color: #fff;
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: bold;
+            cursor: pointer;
+            touch-action: none;
+        }
+        .ctrl-btn:active {
+            background-color: #10b981;
+            color: #030712;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>HAULER 3D PRO</h1>
+            <div class="hud">
+                <div class="hud-row">
+                    <div>CARGO SHIFT: <span id="cargoVal" class="highlight">0%</span></div>
+                    <div>DIST: <span id="distVal" class="highlight">0</span> M</div>
+                </div>
+                <div id="jobSign">JOB: <span id="jobStatusVal" style="color:#60a5fa;">PENDING HIGHWAY DISPATCH...</span></div>
+            </div>
+        </div>
+
+        <div id="canvasContainer">
+            <div id="overlay" class="overlay">
+                <h2 id="overlayTitle">TRUCK SIMULATOR 3D</h2>
+                <p id="overlaySub">Maneuver an articulated industrial container truck. Beware of jackknifing as your cargo swings!</p>
+                <button id="startBtn" class="btn">ATTACH TRAILER & REVVV</button>
+            </div>
+        </div>
+
+        <div class="mobile-controls">
+            <button class="ctrl-btn" id="btn-left">◀ WIDE LEFT</button>
+            <div class="ctrl-btn" id="btn-brake">REVERSE / S</div>
+            <button class="ctrl-btn" id="btn-right">WIDE RIGHT ▶</button>
+        </div>
+
+        <div class="controls-hint">
+            Use Desktop Arrows / WASD. Trucks turn slower and require pre-planning! Keep momentum steady.
+        </div>
+    </div>
+
+    <script>
+        const canvasContainer = document.getElementById('canvasContainer');
+        const overlay = document.getElementById('overlay');
+        const overlayTitle = document.getElementById('overlayTitle');
+        const overlaySub = document.getElementById('overlaySub');
+        const startBtn = document.getElementById('startBtn');
+        const cargoVal = document.getElementById('cargoVal');
+        const distVal = document.getElementById('distVal');
+        const jobStatusVal = document.getElementById('jobStatusVal');
+
+        let scene, camera, renderer;
+        let truckGroup, cab, trailer, road, obstacles = [];
+        let keyState = {};
+        
+        let gameActive = false;
+        let speed = 0;
+        const maxSpeed = 75; // Large trailer inertia
+        let distance = 0;
+        let lateralPos = 0;
+        let trailerAngle = 0; // articulation angle in radians
+        let clock = new THREE.Clock();
+
+        // 3D Serpentine Road Profile
+        function getRoadCurveX(z) {
+            // Sleek sweeps simulating a real commercial transport canyon run!
+            return Math.sin(z * 0.005) * 8.5 + Math.cos(z * 0.012) * 3.5;
+        }
+
+        // Job dispatch data structure
+        const TRUCK_JOBS = [
+            {
+                name: "Toxic Fuel Cell",
+                pickupDist: 130,
+                dropoffDist: 380,
+                cargoColor: 0x22c55e, // safety green
+                desc: "Secure Toxic Uranium Core at 130m. Discard safely at cooling tower gate (380m)."
+            },
+            {
+                name: "Biotech Freezer Vault",
+                pickupDist: 210,
+                dropoffDist: 500,
+                cargoColor: 0x3b82f6, // cooling helium blue
+                desc: "Maneuver sub-zero vaccine isotopes at 210m and deliver to sector lab gate (500m)."
+            },
+            {
+                name: "Microprocessor Gold",
+                pickupDist: 280,
+                dropoffDist: 620,
+                cargoColor: 0xeab308, // shining amber
+                desc: "Collect precision hardware safe box at 280m and dispatch at micro-refinery (620m)."
+            }
+        ];
+
+        let currentJobIndex = 0;
+        let jobState = "PICKUP_AWAITING"; // "PICKUP_AWAITING", "CARGO_HAULING", "COMPLETED_ALL"
+        let cargoPickupSign = null;
+        let deliveryDropoffSign = null;
+
+        // Audio engine synthesis
+        let audioCtx, osc1, osc2, gainNode;
+        function initAudio() {
+            if (audioCtx) return;
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                osc1 = audioCtx.createOscillator();
+                osc2 = audioCtx.createOscillator();
+                gainNode = audioCtx.createGain();
+                
+                osc1.type = 'sawtooth';
+                osc2.type = 'square';
+                
+                osc1.frequency.setValueAtTime(32, audioCtx.currentTime); // Low bass rumbling
+                osc2.frequency.setValueAtTime(16, audioCtx.currentTime); // sub rumbling
+                
+                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                
+                osc1.connect(gainNode);
+                osc2.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                osc1.start();
+                osc2.start();
+            } catch (e) {
+                console.warn("Audio blocked");
+            }
+        }
+
+        function updateAudioPitch() {
+            if (!osc1 || !gainNode) return;
+            if (!gameActive || Math.abs(speed) < 1) {
+                gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+            } else {
+                gainNode.gain.setTargetAtTime(0.06, audioCtx.currentTime, 0.15);
+                const pitch = 25 + (Math.abs(speed) / maxSpeed) * 55;
+                osc1.frequency.setTargetAtTime(pitch, audioCtx.currentTime, 0.1);
+                osc2.frequency.setTargetAtTime(pitch * 0.5, audioCtx.currentTime, 0.1);
+            }
+        }
+
+        function playSoundSync(freq, duration, type = 'sine') {
+            if (!audioCtx) return;
+            try {
+                const tempOsc = audioCtx.createOscillator();
+                const tempGain = audioCtx.createGain();
+                tempOsc.type = type;
+                tempOsc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                tempGain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                tempGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+                tempOsc.connect(tempGain);
+                tempGain.connect(audioCtx.destination);
+                tempOsc.start();
+                tempOsc.stop(audioCtx.currentTime + duration);
+            } catch(e) {}
+        }
+
+        function stopAudio() {
+            if (gainNode) {
+                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            }
+        }
+
+        function initScene() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x02040a);
+            scene.fog = new THREE.FogExp2(0x02040a, 0.012);
+
+            camera = new THREE.PerspectiveCamera(60, canvasContainer.clientWidth / canvasContainer.clientHeight, 0.1, 1000);
+            camera.position.set(0, 7, 16);
+            camera.lookAt(0, 2.5, -2);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+            
+            const existingCanvas = canvasContainer.querySelector('canvas');
+            if (existingCanvas) canvasContainer.removeChild(existingCanvas);
+            canvasContainer.appendChild(renderer.domElement);
+
+            // Lighting
+            const ambient = new THREE.AmbientLight(0xffffff, 0.35);
+            scene.add(ambient);
+
+            const direct = new THREE.DirectionalLight(0x10b981, 0.7);
+            direct.position.set(-6, 20, 8);
+            scene.add(direct);
+
+            // Checkered Transport Road segments
+            for(let i = 0; i < 25; i++) {
+                const segGeo = new THREE.PlaneGeometry(30, 42);
+                const segMat = new THREE.MeshStandardMaterial({ 
+                    color: i % 2 === 0 ? 0x0f172a : 0x111e36, 
+                    roughness: 0.85 
+                });
+                const seg = new THREE.Mesh(segGeo, segMat);
+                seg.rotation.x = -Math.PI / 2;
+                seg.userData = { relativeZ: -i * 40 };
+                scene.add(seg);
+            }
+
+            // Dark Concrete Wall Posts containing roadside amber guides
+            for(let i = 0; i > -1000; i -= 40) {
+                createWallLight(-15.5, i, 0xf59e0b);
+                createWallLight(15.5, i, 0xf59e0b);
+            }
+
+            // Create Heavy Truck Composite
+            truckGroup = new THREE.Group();
+            
+            cab = createCab();
+            cab.position.set(0, 0, 0);
+            truckGroup.add(cab);
+
+            trailer = createTrailer();
+            trailer.position.set(0, 0, 4.2);
+            truckGroup.add(trailer);
+
+            scene.add(truckGroup);
+
+            // Obstacles
+            obstacles = [];
+            for(let i = 1; i <= 4; i++) {
+                spawnObstacle(-120 - i * 90);
+            }
+
+            // Set up our first delivery contract!
+            currentJobIndex = 0;
+            jobState = "PICKUP_AWAITING";
+            updateJobUI();
+            
+            // Spawn the physical pickup crate
+            const currentJob = TRUCK_JOBS[currentJobIndex];
+            spawnJobPickup(-currentJob.pickupDist, currentJob.cargoColor);
+        }
+
+        function spawnJobPickup(zRelative, colorHex) {
+            if (cargoPickupSign) scene.remove(cargoPickupSign);
+
+            cargoPickupSign = new THREE.Group();
+
+            // Floating cargo diamond shape
+            const coreGeo = new THREE.OctahedronGeometry(1.5);
+            const coreMat = new THREE.MeshStandardMaterial({
+                color: colorHex,
+                emissive: colorHex,
+                emissiveIntensity: 0.8,
+                roughness: 0.1
+            });
+            const core = new THREE.Mesh(coreGeo, coreMat);
+            core.position.y = 1.3;
+            cargoPickupSign.add(core);
+
+            // Dual circling ring outlines representing secure cargo bay sensor
+            const ringGeo = new THREE.RingGeometry(3.0, 3.4, 16);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.rotation.x = Math.PI / 2;
+            ring.position.y = 0.05;
+            cargoPickupSign.add(ring);
+
+            cargoPickupSign.userData = { relativeZ: zRelative };
+            scene.add(cargoPickupSign);
+        }
+
+        function spawnJobDelivery(zRelative, colorHex) {
+            if (deliveryDropoffSign) scene.remove(deliveryDropoffSign);
+
+            deliveryDropoffSign = new THREE.Group();
+
+            // Cylindrical wireframe bay
+            const bayGeo = new THREE.CylinderGeometry(5.0, 5.0, 6, 16, 2, true);
+            const bayMat = new THREE.MeshBasicMaterial({
+                color: colorHex,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.65
+            });
+            const bay = new THREE.Mesh(bayGeo, bayMat);
+            bay.position.y = 3.0;
+            deliveryDropoffSign.add(bay);
+
+            // Left neon entry gate pillar
+            const poleGeo = new THREE.CylinderGeometry(0.25, 0.25, 8, 8);
+            const poleMat = new THREE.MeshBasicMaterial({ color: colorHex });
+            const leftG = new THREE.Mesh(poleGeo, poleMat);
+            leftG.position.set(-6, 4, 0);
+            deliveryDropoffSign.add(leftG);
+
+            const rightG = leftG.clone();
+            rightG.position.x = 6;
+            deliveryDropoffSign.add(rightG);
+
+            deliveryDropoffSign.userData = { relativeZ: zRelative };
+            scene.add(deliveryDropoffSign);
+        }
+
+        function updateJobUI() {
+            const job = TRUCK_JOBS[currentJobIndex];
+            if (!job) {
+                jobStatusVal.textContent = "ALL CONTRACTS COMPLETED!";
+                jobStatusVal.style.color = "#10b981";
+                return;
+            }
+            if (jobState === "PICKUP_AWAITING") {
+                jobStatusVal.textContent = `PULL UP TO pickup: ${job.name} (~${Math.round(Math.abs(cargoPickupSign ? cargoPickupSign.userData.relativeZ : job.pickupDist))}m)`;
+                jobStatusVal.style.color = "#fbbf24";
+            } else if (jobState === "CARGO_HAULING") {
+                jobStatusVal.textContent = `DELIVERING ${job.name} (~${Math.round(Math.abs(deliveryDropoffSign ? deliveryDropoffSign.userData.relativeZ : 300))}m) - SPEED <= 5 TO UNLOAD`;
+                jobStatusVal.style.color = "#10b981";
+            }
+        }
+
+        function createWallLight(x, z, colorHex) {
+            const poleGeo = new THREE.BoxGeometry(0.35, 5, 0.35);
+            const poleMat = new THREE.MeshBasicMaterial({ color: 0x1f2937 });
+            const p = new THREE.Mesh(poleGeo, poleMat);
+            p.position.set(x, 2.5, z);
+            p.userData = { relativeZ: z, xOffset: x };
+            scene.add(p);
+
+            const lightGeo = new THREE.SphereGeometry(0.4, 8, 8);
+            const lightMat = new THREE.MeshBasicMaterial({ color: colorHex });
+            const l = new THREE.Mesh(lightGeo, lightMat);
+            l.position.set(x, 5, z);
+            l.userData = { relativeZ: z, xOffset: x, heightY: 5.0 };
+            scene.add(l);
+        }
+
+        function createCab() {
+            const group = new THREE.Group();
+
+            // Wheels
+            const whGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.5, 12);
+            const whMat = new THREE.MeshStandardMaterial({ color: 0x030712 });
+            const frontLeft = new THREE.Mesh(whGeo, whMat);
+            frontLeft.rotation.z = Math.PI/2;
+            frontLeft.position.set(-1.15, 0.55, -1.2);
+            group.add(frontLeft);
+
+            const frontRight = frontLeft.clone();
+            frontRight.position.x = 1.15;
+            group.add(frontRight);
+
+            const rearLeft = frontLeft.clone();
+            rearLeft.position.z = 0.8;
+            group.add(rearLeft);
+
+            const rearRight = frontRight.clone();
+            rearRight.position.z = 0.8;
+            group.add(rearRight);
+
+            // Cab Chassis
+            const chGeo = new THREE.BoxGeometry(2.1, 0.4, 4);
+            const chMat = new THREE.MeshStandardMaterial({ color: 0x374151 });
+            const chassis = new THREE.Mesh(chGeo, chMat);
+            chassis.position.y = 0.7;
+            group.add(chassis);
+
+            // Head Cab Cabin Body
+            const bodyGeo = new THREE.BoxGeometry(2.1, 1.8, 1.8);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x059669, roughness: 0.22 });
+            const b = new THREE.Mesh(bodyGeo, bodyMat);
+            b.position.set(0, 1.7, -1.0);
+            group.add(b);
+
+            // Windows
+            const wGeo = new THREE.BoxGeometry(2.12, 0.7, 0.9);
+            const wMat = new THREE.MeshBasicMaterial({ color: 0x1e293b });
+            const w = new THREE.Mesh(wGeo, wMat);
+            w.position.set(0, 1.9, -1.0);
+            group.add(w);
+
+            return group;
+        }
+
+        function createTrailer() {
+            const group = new THREE.Group();
+
+            // Trailer chassis frame
+            const chGeo = new THREE.BoxGeometry(2.2, 0.3, 7.5);
+            const chMat = new THREE.MeshStandardMaterial({ color: 0x1f2937 });
+            const chassis = new THREE.Mesh(chGeo, chMat);
+            chassis.position.y = 0.8;
+            group.add(chassis);
+
+            // Heavy Dual Rear Wheels
+            const whGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.6, 12);
+            const whMat = new THREE.MeshStandardMaterial({ color: 0x030712 });
+            
+            for(let zPos of [1.8, 3.0]) {
+                const wl = new THREE.Mesh(whGeo, whMat);
+                wl.rotation.z = Math.PI/2;
+                wl.position.set(-1.15, 0.55, zPos);
+                group.add(wl);
+
+                const wr = wl.clone();
+                wr.position.x = 1.15;
+                group.add(wr);
+            }
+
+            // Massive Cargo Container box
+            const cargoGeo = new THREE.BoxGeometry(2.2, 2.0, 7.2);
+            // Industrial yellow cargo start. Changes when jobs are loaded!
+            const cargoMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.5 });
+            const cargo = new THREE.Mesh(cargoGeo, cargoMat);
+            cargo.name = "cargoBox";
+            cargo.position.set(0, 1.9, 0.1);
+            group.add(cargo);
+
+            // Decorative ribs on shipping container
+            for(let i = -3; i <= 3; i++) {
+                const ribGeo = new THREE.BoxGeometry(2.26, 2.06, 0.15);
+                const rib = new THREE.Mesh(ribGeo, cargoMat);
+                rib.name = "cargoRib_" + i;
+                rib.position.set(0, 1.9, i * 0.9);
+                group.add(rib);
+            }
+
+            return group;
+        }
+
+        function spawnObstacle(zPos) {
+            const lane = Math.floor(Math.random() * 3) - 1; // -1, 0, 1
+            const colors = [0xef4444, 0xf59e0b, 0x3b82f6];
+            const color = colors[Math.floor(Math.random() * colors.length)];
+
+            // Obstacle concrete barrier
+            const barrGeo = new THREE.BoxGeometry(5.5, 1.4, 2);
+            const barrMat = new THREE.MeshStandardMaterial({ color: color });
+            const barrier = new THREE.Mesh(barrGeo, barrMat);
+            barrier.position.set(lane * 7.5, 0.7, zPos);
+            barrier.userData = { relativeZ: zPos, lane: lane };
+            scene.add(barrier);
+            obstacles.push(barrier);
+        }
+
+        function restartGame() {
+            speed = 0;
+            distance = 0;
+            lateralPos = 0;
+            trailerAngle = 0;
+            initScene();
+            initAudio();
+            gameActive = true;
+            overlay.style.display = 'none';
+        }
+
+        function handleInput(delta) {
+            // Sluggish industrial trucks controls
+            if (keyState['ArrowUp'] || keyState['w'] || keyState['W']) {
+                speed = Math.min(speed + 16 * delta, maxSpeed); // Heavy sluggish momentum
+            } else if (keyState['ArrowDown'] || keyState['s'] || keyState['S'] || keyState['brakeActive']) {
+                speed = Math.max(speed - 42 * delta, -15); // supports reverse parking cargo!
+            } else {
+                speed = Math.max(speed - 12 * delta, -5); // slowly rolling friction
+            }
+
+            // Wide-turn slow chassis adjustment
+            if (keyState['ArrowLeft'] || keyState['a'] || keyState['A'] || keyState['leftActive']) {
+                lateralPos = Math.max(lateralPos - 5.5 * delta, -11.5);
+            }
+            if (keyState['ArrowRight'] || keyState['d'] || keyState['D'] || keyState['rightActive']) {
+                lateralPos = Math.min(lateralPos + 5.5 * delta, 11.5);
+            }
+        }
+
+        function checkCollisions() {
+            // Check bounding collisions with obstacles on road
+            for(let obs of obstacles) {
+                const distCabZ = Math.abs(obs.position.z - cab.position.z);
+                const distTrailerZ = Math.abs(obs.position.z - trailer.position.z);
+
+                if (distCabZ < 2.0 && Math.abs(obs.position.x - cab.position.x) < 3.2) {
+                    endGame("CAB COLLISION DETECTED");
+                    return;
+                }
+                if (distTrailerZ < 3.6 && Math.abs(obs.position.x - trailer.position.x) < 3.2) {
+                    endGame("TRAILER CARGO LOSS");
+                    return;
+                }
+            }
+
+            // High speed collision on outer barrier
+            if (Math.abs(lateralPos) > 12.0 && Math.abs(speed) > 15) {
+                endGame("GUARD RAIL CRASH");
+            }
+        }
+
+        function endGame(reason) {
+            gameActive = false;
+            stopAudio();
+            overlayTitle.textContent = reason || "ACCIDENT DETECTED";
+            overlaySub.textContent = `A heavy transport event occurred after driving ${Math.round(distance)} meters. Deliver industrial contracts carefully!`;
+            startBtn.textContent = "BOBTAIL RESTART";
+            overlay.style.display = 'flex';
+        }
+
+        function updateScene(delta) {
+            if (!gameActive) return;
+
+            // Compute speed translations
+            const zSpeed = (speed * delta) / 3.6;
+            const pastCurveCenter = getRoadCurveX(distance);
+            distance += zSpeed;
+            const currentCurveCenter = getRoadCurveX(distance);
+
+            // Centrifugal Jackknife Drift!
+            // Massive wide-load logistics sway outward heavily on bends
+            const curveChange = currentCurveCenter - pastCurveCenter;
+            lateralPos -= curveChange * (0.16 + (Math.abs(speed) / maxSpeed) * 0.95);
+
+            // Apply trailer articulation constraint lag
+            cab.position.x = currentCurveCenter + lateralPos;
+            cab.position.z = 0;
+
+            const targetTrailerAngle = (cab.position.x - trailer.position.x) * 0.42;
+            trailerAngle += (targetTrailerAngle - trailerAngle) * 3.8 * delta;
+
+            trailer.position.x = cab.position.x - Math.sin(trailerAngle) * 4.2;
+            trailer.position.z = cab.position.z + Math.cos(trailerAngle) * 4.2;
+            trailer.rotation.y = trailerAngle;
+
+            // Squeal or alert trailer shift
+            const cargoAngleDeg = Math.round(Math.abs(trailerAngle) * (180 / Math.PI));
+            const shiftPercent = Math.min(Math.round((cargoAngleDeg / 40) * 100), 100);
+            cargoVal.textContent = shiftPercent + "%";
+            
+            if (shiftPercent > 78) {
+                cargoVal.style.color = '#f87171'; // Warning alarm
+                if (Math.abs(speed) > 35) {
+                    // Friction alert beep!
+                    playSoundSync(880, 0.05, 'triangle');
+                }
+            } else {
+                cargoVal.style.color = '#10b981';
+            }
+
+            // Jackknife safety limit check
+            if (shiftPercent >= 100 && Math.abs(speed) > 10) {
+                endGame("TRAILER JACKKNIFED!");
+                return;
+            }
+
+            // Off-road slow drag friction
+            if (Math.abs(lateralPos) > 10.0) {
+                speed = Math.max(speed - 50 * delta, -5);
+                cab.position.y = Math.sin(Date.now() * 0.06) * 0.06;
+            } else {
+                cab.position.y = 0;
+            }
+
+            // Align all relative elements (checkered road meshes, traffic, beacons)
+            scene.traverse(child => {
+                if (child.userData && child.userData.relativeZ !== undefined) {
+                    child.userData.relativeZ += zSpeed;
+
+                    // Recycling
+                    if (child.userData.relativeZ > 20) {
+                        if (obstacles.includes(child)) {
+                            child.userData.relativeZ = -500 - Math.random() * 150;
+                            child.userData.lane = Math.floor(Math.random() * 3) - 1;
+                        } else {
+                            child.userData.relativeZ -= 1000;
+                        }
+                    }
+
+                    // Curve calculation
+                    const z = child.userData.relativeZ;
+                    const curveX = getRoadCurveX(distance + z);
+                    child.position.z = z;
+
+                    if (child.userData.xOffset !== undefined) {
+                        child.position.x = curveX + child.userData.xOffset;
+                        if (child.userData.heightY !== undefined) {
+                            child.position.y = child.userData.heightY;
+                        }
+                    } else if (child.userData.lane !== undefined) {
+                        child.position.x = curveX + child.userData.lane * 7.5;
+                    } else {
+                        // Road plane mesh
+                        child.position.x = curveX;
+                    }
+                }
+            });
+
+            // Spin pick up / drop off visualizers!
+            if (cargoPickupSign) {
+                cargoPickupSign.rotation.y += 1.8 * delta;
+                const pObj = cargoPickupSign.getObjectByName("spinObject");
+                if (pObj) pObj.rotation.x += 1.0 * delta;
+
+                // Sync curve pos
+                const curPickupZ = cargoPickupSign.userData.relativeZ + zSpeed;
+                cargoPickupSign.userData.relativeZ = curPickupZ;
+                cargoPickupSign.position.z = curPickupZ;
+                cargoPickupSign.position.x = getRoadCurveX(distance + curPickupZ);
+
+                // Check Pickup contact!
+                if (Math.abs(curPickupZ) < 3.6) {
+                    if (Math.abs(speed) <= 12) {
+                        // SUCCESSFUL CARGO ACQUISITION
+                        jobState = "CARGO_HAULING";
+                        scene.remove(cargoPickupSign);
+                        cargoPickupSign = null;
+                        
+                        const job = TRUCK_JOBS[currentJobIndex];
+                        playSoundSync(587.33, 0.25, 'sine'); // High pitch chimes
+                        setTimeout(() => playSoundSync(880, 0.35, 'sine'), 150);
+
+                        // Spawn delivery drop point
+                        spawnJobDelivery(-(job.dropoffDist - job.pickupDist), job.cargoColor);
+
+                        // Change shipping container trailer color to match picked load!
+                        trailer.traverse(c => {
+                            if (c.name && (c.name === "cargoBox" || c.name.startsWith("cargoRib"))) {
+                                c.material.color.setHex(job.cargoColor);
+                            }
+                        });
+                    } else {
+                        // Warn player they are running cargo too fast!
+                        jobStatusVal.textContent = "SLOW OUT TO ATTACH CARGO (SPEED <= 12)";
+                        jobStatusVal.style.color = "#f87171";
+                    }
+                }
+            }
+
+            if (deliveryDropoffSign) {
+                deliveryDropoffSign.rotation.y += 1.2 * delta;
+
+                const curDelivZ = deliveryDropoffSign.userData.relativeZ + zSpeed;
+                deliveryDropoffSign.userData.relativeZ = curDelivZ;
+                deliveryDropoffSign.position.z = curDelivZ;
+                deliveryDropoffSign.position.x = getRoadCurveX(distance + curDelivZ);
+
+                // Check Delivery UNLOAD
+                if (Math.abs(curDelivZ) < 4.0) {
+                    if (Math.abs(speed) <= 5.0) {
+                        // SUCCESSFUL DELIVERY UNLOAD!
+                        scene.remove(deliveryDropoffSign);
+                        deliveryDropoffSign = null;
+
+                        playSoundSync(784, 0.2, 'sine');
+                        setTimeout(() => playSoundSync(1046, 0.45, 'sine'), 120);
+
+                        // Reset trailer to base design
+                        trailer.traverse(c => {
+                            if (c.name && (c.name === "cargoBox" || c.name.startsWith("cargoRib"))) {
+                                c.material.color.setHex(0xd97706);
+                            }
+                        });
+
+                        currentJobIndex++;
+                        if (currentJobIndex < TRUCK_JOBS.length) {
+                            jobState = "PICKUP_AWAITING";
+                            const nextJob = TRUCK_JOBS[currentJobIndex];
+                            spawnJobPickup(-Math.abs(nextJob.pickupDist - TRUCK_JOBS[currentJobIndex - 1].dropoffDist), nextJob.cargoColor);
+                        } else {
+                            jobState = "COMPLETED_ALL";
+                            endGame("ALL TRUCKING CONTRACTS FULFILLED!");
+                            return;
+                        }
+                    } else {
+                        jobStatusVal.textContent = "STOP ON THE BLUE GATE TO DEMOUNT LOAD!";
+                        jobStatusVal.style.color = "#fbbf24";
+                    }
+                }
+            }
+
+            updateJobUI();
+
+            // Camera smoothly looks downstream
+            const lookAheadX = getRoadCurveX(distance - 35);
+            camera.position.x = cab.position.x * 0.85;
+            camera.lookAt(lookAheadX, 2.0, -10);
+
+            distVal.textContent = Math.round(distance);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = Math.min(clock.getDelta(), 0.1);
+
+            if (gameActive) {
+                handleInput(delta);
+                updateScene(delta);
+                checkCollisions();
+                updateAudioPitch();
+            }
+
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
+        }
+
+        window.addEventListener('resize', () => {
+            if (camera && renderer) {
+                camera.aspect = canvasContainer.clientWidth / canvasContainer.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+            }
+        });
+
+        window.addEventListener('keydown', e => {
+            keyState[e.key] = true;
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                e.preventDefault();
+            }
+        });
+        window.addEventListener('keyup', e => {
+            keyState[e.key] = false;
+        });
+
+        // Touch triggers
+        document.getElementById('btn-left').addEventListener('touchstart', e => { e.preventDefault(); keyState['leftActive'] = true; });
+        document.getElementById('btn-left').addEventListener('touchend', () => keyState['leftActive'] = false);
+        document.getElementById('btn-right').addEventListener('touchstart', e => { e.preventDefault(); keyState['rightActive'] = true; });
+        document.getElementById('btn-right').addEventListener('touchend', () => keyState['rightActive'] = false);
+        
+        document.getElementById('btn-brake').addEventListener('touchstart', e => { e.preventDefault(); keyState['brakeActive'] = true; });
+        document.getElementById('btn-brake').addEventListener('touchend', () => keyState['brakeActive'] = false);
+        document.getElementById('btn-brake').addEventListener('mousedown', () => keyState['brakeActive'] = true);
+        document.getElementById('btn-brake').addEventListener('mouseup', () => keyState['brakeActive'] = false);
+
+        startBtn.addEventListener('click', () => {
+            restartGame();
+        });
+
+        initScene();
+        animate();
+    </script>
+</body>
+</html>

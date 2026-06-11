@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D City Bus Simulator</title>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+        body {
+            background-color: #030712;
+            color: #f3f4f6;
+            font-family: 'JetBrains Mono', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            padding: 10px;
+        }
+        .container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        h1 {
+            font-size: 20px;
+            color: #10b981;
+            text-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+            text-transform: uppercase;
+        }
+        .hud {
+            display: flex;
+            gap: 15px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        .highlight {
+            color: #10b981;
+        }
+        #canvasContainer {
+            width: 100%;
+            aspect-ratio: 4 / 3;
+            background-color: #0b0f19;
+            border: 3px solid #10b981;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+        }
+        .overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(11, 15, 25, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            text-align: center;
+            padding: 20px;
+            border-radius: 6px;
+        }
+        .overlay h2 {
+            color: #10b981;
+            font-size: 24px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+        .overlay p {
+            font-size: 11px;
+            color: #9ca3af;
+            margin-bottom: 18px;
+            max-width: 280px;
+            line-height: 1.4;
+        }
+        .btn {
+            background-color: #10b981;
+            color: #030712;
+            border: none;
+            padding: 10px 20px;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .btn:hover {
+            background-color: #34d399;
+            transform: scale(1.05);
+        }
+        .controls-hint {
+            margin-top: 10px;
+            font-size: 11px;
+            color: #6b7280;
+            text-align: center;
+        }
+        .mobile-controls {
+            display: none;
+            width: 100%;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+        @media (max-width: 768px) {
+            .mobile-controls {
+                display: grid;
+            }
+        }
+        .ctrl-btn {
+            background-color: #111827;
+            border: 1px solid #1f2937;
+            color: #fff;
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: bold;
+            cursor: pointer;
+            touch-action: none;
+        }
+        .ctrl-btn:active {
+            background-color: #10b981;
+            color: #030712;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>TRANSIT 3D BUS</h1>
+            <div class="hud">
+                <div class="hud-row" style="display:flex; gap:15px;">
+                    <div>SCORE: <span id="scoreVal" class="highlight">0</span></div>
+                    <div>TIME LEFT: <span id="timeVal" class="highlight">45s</span></div>
+                </div>
+                <div id="busStopSign" style="font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; color: #60a5fa;">
+                    NEXT: <span id="nextStopNameVal" style="color: #fbbf24;">DEPARTING DEPOT...</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="canvasContainer">
+            <div id="overlay" class="overlay">
+                <h2 id="overlayTitle">BUS SIMULATOR 3D</h2>
+                <p id="overlaySub">Safely stop at the illuminated terminal nodes. Avoid going off the road structure to keep customer reviews high!</p>
+                <button id="startBtn" class="btn">START TRANSIT ROUTE</button>
+            </div>
+        </div>
+
+        <div class="mobile-controls">
+            <button class="ctrl-btn" id="btn-left">◀ ALIGN LEFT</button>
+            <div class="ctrl-btn" id="btn-brake">SLOW / BACK</div>
+            <button class="ctrl-btn" id="btn-right">ALIGN RIGHT ▶</button>
+        </div>
+
+        <div class="controls-hint">
+            Use Arrows or WASD on desktop. Steer directly into the glowing blue circles, and hold brakes to drop off passengers.
+        </div>
+    </div>
+
+    <script>
+        const canvasContainer = document.getElementById('canvasContainer');
+        const overlay = document.getElementById('overlay');
+        const overlayTitle = document.getElementById('overlayTitle');
+        const overlaySub = document.getElementById('overlaySub');
+        const startBtn = document.getElementById('startBtn');
+        const scoreVal = document.getElementById('scoreVal');
+        const timeVal = document.getElementById('timeVal');
+        const nextStopNameVal = document.getElementById('nextStopNameVal');
+
+        let scene, camera, renderer;
+        let busGroup, road, stations = [];
+        let keyState = {};
+        
+        let gameActive = false;
+        let speed = 0;
+        const maxSpeed = 65; // Safe city transport limits
+        let score = 0;
+        let timeLeft = 45;
+        let lateralPos = 0;
+        let distance = 0;
+        let clock = new THREE.Clock();
+
+        // Beautiful 3D winding city layout curve
+        function getRoadCurveX(z) {
+            // Sweeps representing city transit bypass lane
+            return Math.sin(z * 0.0055) * 8.0 + Math.cos(z * 0.013) * 3.5;
+        }
+
+        // Sequential schedule of bus stops along the highway
+        const BUS_STOPS_DATA = [
+            { name: "Central Station Plaza", distance: 130, lane: 4.8, count: 4, color: 0x60a5fa },
+            { name: "Hyperion Commerce Plaza", distance: 290, lane: -4.8, count: 6, color: 0xa855f7 },
+            { name: "Canyon Sector Terminal", distance: 440, lane: 4.8, count: 5, color: 0xf43f5e },
+            { name: "Grand Airport Terminus", distance: 600, lane: -4.8, count: 8, color: 0x10b981 }
+        ];
+
+        let currentStopIndex = 0;
+        let boardingInProgress = false;
+        let boardingProgress = 0;
+        let boardingTargetStation = null;
+
+        // Sound generator synth
+        let audioCtx, osc, gainNode;
+        function initAudio() {
+            if (audioCtx) return;
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                osc = audioCtx.createOscillator();
+                gainNode = audioCtx.createGain();
+                
+                osc.type = 'triangle'; // smooth low electric whine
+                osc.frequency.setValueAtTime(65, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                osc.start();
+            } catch (e) {
+                console.warn("Audio blocked");
+            }
+        }
+
+        function updateAudioPitch() {
+            if (!osc || !gainNode) return;
+            if (!gameActive || speed === 0) {
+                gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+            } else {
+                gainNode.gain.setTargetAtTime(0.08, audioCtx.currentTime, 0.1);
+                const pitch = 65 + (Math.abs(speed) / maxSpeed) * 140;
+                osc.frequency.setTargetAtTime(pitch, audioCtx.currentTime, 0.15);
+            }
+        }
+
+        function playSoundSync(freq, duration, type = 'sine') {
+            if (!audioCtx) return;
+            try {
+                const tempOsc = audioCtx.createOscillator();
+                const tempGain = audioCtx.createGain();
+                tempOsc.type = type;
+                tempOsc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                tempGain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                tempGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+                tempOsc.connect(tempGain);
+                tempGain.connect(audioCtx.destination);
+                tempOsc.start();
+                tempOsc.stop(audioCtx.currentTime + duration);
+            } catch(e) {}
+        }
+
+        function stopAudio() {
+            if (gainNode) {
+                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            }
+        }
+
+        function initScene() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x060814);
+            scene.fog = new THREE.FogExp2(0x060814, 0.012);
+
+            camera = new THREE.PerspectiveCamera(60, canvasContainer.clientWidth / canvasContainer.clientHeight, 0.1, 1000);
+            camera.position.set(0, 6, 14);
+            camera.lookAt(0, 2, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+            
+            const existingCanvas = canvasContainer.querySelector('canvas');
+            if (existingCanvas) canvasContainer.removeChild(existingCanvas);
+            canvasContainer.appendChild(renderer.domElement);
+
+            // Light
+            const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(ambient);
+
+            const spotlight = new THREE.DirectionalLight(0x0ea5e9, 0.8);
+            spotlight.position.set(0, 20, 10);
+            scene.add(spotlight);
+
+            // Checkered city transit highway segments
+            for(let i = 0; i < 25; i++) {
+                const segGeo = new THREE.PlaneGeometry(28, 42);
+                const segMat = new THREE.MeshStandardMaterial({ 
+                    color: i % 2 === 0 ? 0x0f172a : 0x111e36, 
+                    roughness: 0.85 
+                });
+                const seg = new THREE.Mesh(segGeo, segMat);
+                seg.rotation.x = -Math.PI / 2;
+                seg.userData = { relativeZ: -i * 40 };
+                scene.add(seg);
+            }
+
+            // Cityscape Background lights
+            for(let i = 0; i > -1000; i -= 45) {
+                createCityPillar(-16, i);
+                createCityPillar(16, i);
+            }
+
+            // Create Transit Bus
+            busGroup = createTransitBus();
+            busGroup.position.set(0, 0, 0);
+            scene.add(busGroup);
+
+            // Spawn first scheduled active transit stop
+            stations = [];
+            currentStopIndex = 0;
+            boardingInProgress = false;
+            boardingProgress = 0;
+            boardingTargetStation = null;
+            updateHUDStop();
+
+            const firstStop = BUS_STOPS_DATA[currentStopIndex];
+            spawnStop(-firstStop.distance, firstStop);
+        }
+
+        function createCityPillar(x, z) {
+            const pillarGeo = new THREE.BoxGeometry(0.5, 9, 0.5);
+            const pillarMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9 });
+            const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+            pillar.position.set(x, 4.5, z);
+            pillar.userData = { relativeZ: z, xOffset: x };
+            scene.add(pillar);
+
+            // Neon light strip on top edge
+            const lightGeo = new THREE.BoxGeometry(0.1, 2, 0.1);
+            const lightMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+            const light = new THREE.Mesh(lightGeo, lightMat);
+            light.position.set(x + (x > 0 ? -0.32 : 0.32), 8, z);
+            light.userData = { relativeZ: z, xOffset: x + (x > 0 ? -0.32 : 0.32), heightY: 8.0 };
+            scene.add(light);
+        }
+
+        function createTransitBus() {
+            const group = new THREE.Group();
+
+            // Wheels
+            const whGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.5, 12);
+            const whMat = new THREE.MeshStandardMaterial({ color: 0x090d16 });
+            
+            const wheelFL = new THREE.Mesh(whGeo, whMat);
+            wheelFL.rotation.z = Math.PI / 2;
+            wheelFL.position.set(-1.1, 0.5, -2.2);
+            group.add(wheelFL);
+
+            const wheelFR = wheelFL.clone();
+            wheelFR.position.x = 1.1;
+            group.add(wheelFR);
+
+            const wheelRL = wheelFL.clone();
+            wheelRL.position.z = 2.0;
+            group.add(wheelRL);
+
+            const wheelRR = wheelFR.clone();
+            wheelRR.position.z = 2.0;
+            group.add(wheelRR);
+
+            // Long bus main glass hull
+            const hullGeo = new THREE.BoxGeometry(2.1, 2.1, 6.8);
+            const hullMat = new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.1, metalness: 0.7 });
+            const hull = new THREE.Mesh(hullGeo, hullMat);
+            hull.position.y = 1.6;
+            group.add(hull);
+
+            // Windows row (left and right)
+            const winMat = new THREE.MeshBasicMaterial({ color: 0x1e293b });
+            for(let side of [-1.06, 1.06]) {
+                const wGeo = new THREE.BoxGeometry(0.02, 0.7, 5.8);
+                const w = new THREE.Mesh(wGeo, winMat);
+                w.position.set(side, 1.8, 0.2);
+                group.add(w);
+            }
+
+            // Big Front Windshield
+            const frontGeo = new THREE.BoxGeometry(1.9, 1.1, 0.02);
+            const frontWindow = new THREE.Mesh(frontGeo, winMat);
+            frontWindow.position.set(0, 1.8, -3.41);
+            group.add(frontWindow);
+
+            // Neon Sign LED board displaying route
+            const boardGeo = new THREE.BoxGeometry(1.4, 0.25, 0.05);
+            const boardMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
+            const board = new THREE.Mesh(boardGeo, boardMat);
+            board.position.set(0, 2.4, -3.4);
+            group.add(board);
+
+            return group;
+        }
+
+        function createPassengerModel(colorHex) {
+            const group = new THREE.Group();
+
+            // body cylinder
+            const bodyGeo = new THREE.CylinderGeometry(0.18, 0.18, 1.1, 8);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.8 });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = 0.55;
+            group.add(body);
+
+            // head sphere
+            const headGeo = new THREE.SphereGeometry(0.2, 8, 8);
+            const headMat = new THREE.MeshBasicMaterial({ color: 0xfbcfe8 }); // peach complexion look
+            const head = new THREE.Mesh(headGeo, headMat);
+            head.position.y = 1.25;
+            group.add(head);
+
+            return group;
+        }
+
+        function spawnStop(zRelative, stopData) {
+            const stopGroup = new THREE.Group();
+
+            // S-Curve aligned station shelter platform
+            const platformGeo = new THREE.BoxGeometry(5.0, 0.15, 6.5);
+            const platformMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
+            const platform = new THREE.Mesh(platformGeo, platformMat);
+            platform.position.y = 0.075;
+            stopGroup.add(platform);
+
+            // Canopy roof
+            const roofGeo = new THREE.BoxGeometry(5.0, 0.1, 6.5);
+            const roofMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
+            const roof = new THREE.Mesh(roofGeo, roofMat);
+            roof.position.set(0, 4.0, 0);
+            stopGroup.add(roof);
+
+            // Back partition glass wall
+            const wallGeo = new THREE.BoxGeometry(0.1, 4.0, 6.5);
+            const wallMat = new THREE.MeshBasicMaterial({ color: stopData.color, transparent: true, opacity: 0.25 });
+            const wall = new THREE.Mesh(wallGeo, wallMat);
+            // Put wall on outer edge of platform
+            wall.position.set(stopData.lane > 0 ? 2.4 : -2.4, 2.0, 0);
+            stopGroup.add(wall);
+
+            // Support Pillars
+            const pillGeo = new THREE.CylinderGeometry(0.1, 0.1, 4.0, 8);
+            const pillMat = new THREE.MeshStandardMaterial({ color: 0x475569 });
+            
+            const pillL = new THREE.Mesh(pillGeo, pillMat);
+            pillL.position.set(stopData.lane > 0 ? -2.3 : 2.3, 2.0, -2.8);
+            stopGroup.add(pillL);
+
+            const pillR = pillL.clone();
+            pillR.position.z = 2.8;
+            stopGroup.add(pillR);
+
+            // Passenger Waiting Models Group!
+            const passengersGroup = new THREE.Group();
+            const colors = [0xef4444, 0x3b82f6, 0x10b981, 0xf59e0b, 0x6366f1, 0xec4899];
+            
+            for(let i = 0; i < stopData.count; i++) {
+                const pass = createPassengerModel(colors[i % colors.length]);
+                pass.position.set(
+                    (Math.random() * 2.8 - 1.4), 
+                    0.15, 
+                    (Math.random() * 4.0 - 2.0)
+                );
+                passengersGroup.add(pass);
+            }
+            stopGroup.add(passengersGroup);
+
+            stopGroup.userData = { 
+                relativeZ: zRelative, 
+                lane: stopData.lane,
+                data: stopData,
+                passengers: passengersGroup,
+                boarded: false
+            };
+            
+            scene.add(stopGroup);
+            stations.push(stopGroup);
+        }
+
+        function updateHUDStop() {
+            const stop = BUS_STOPS_DATA[currentStopIndex];
+            if (!stop) {
+                nextStopNameVal.textContent = "SCHEDULE COMPLETED!";
+                nextStopNameVal.style.color = "#10b981";
+                return;
+            }
+            const activeStationObj = stations[0];
+            const dist = activeStationObj ? Math.round(Math.abs(activeStationObj.userData.relativeZ)) : stop.distance;
+            nextStopNameVal.textContent = `${stop.name} (~${dist}m) - ${stop.count} PASSENGERS WAITING`;
+        }
+
+        function restartGame() {
+            speed = 0;
+            score = 0;
+            timeLeft = 45;
+            lateralPos = 0;
+            distance = 0;
+            initScene();
+            initAudio();
+            gameActive = true;
+            overlay.style.display = 'none';
+        }
+
+        function handleInput(delta) {
+            // Bus restricted acceleration parameters
+            if (keyState['ArrowUp'] || keyState['w'] || keyState['W']) {
+                speed = Math.min(speed + 22 * delta, maxSpeed);
+            } else if (keyState['ArrowDown'] || keyState['s'] || keyState['S'] || keyState['brakeActive']) {
+                speed = Math.max(speed - 55 * delta, -10); // Heavy braking slow
+            } else {
+                speed = Math.max(speed - 14 * delta, 0); // Roll stopping inertias
+            }
+
+            // Sleeker lane adjustments
+            if (keyState['ArrowLeft'] || keyState['a'] || keyState['A'] || keyState['leftActive']) {
+                lateralPos = Math.max(lateralPos - 6.5 * delta, -11);
+            }
+            if (keyState['ArrowRight'] || keyState['d'] || keyState['D'] || keyState['rightActive']) {
+                lateralPos = Math.min(lateralPos + 6.5 * delta, 11);
+            }
+        }
+
+        function updateScene(delta) {
+            if (!gameActive) return;
+
+            const zSpeed = (speed * delta) / 3.6;
+            const pastCurveCenter = getRoadCurveX(distance);
+            distance += zSpeed;
+            const currentCurveCenter = getRoadCurveX(distance);
+
+            // Centrifugal highway drift matching the curve
+            const curveChange = currentCurveCenter - pastCurveCenter;
+            lateralPos -= curveChange * (0.2 + (speed / maxSpeed) * 0.75);
+
+            busGroup.position.x = currentCurveCenter + lateralPos;
+            busGroup.position.z = 0;
+
+            // Timer Tick down
+            timeLeft -= delta;
+            timeVal.textContent = Math.ceil(Math.min(timeLeft, 99)) + "s";
+            scoreVal.textContent = score;
+
+            if (timeLeft <= 0) {
+                endGame("TRANSIT COOLDOWN EXPIRED");
+                return;
+            }
+
+            // High speed collision barrier safety check
+            if (Math.abs(lateralPos) > 11.5) {
+                speed = Math.max(speed - 60 * delta, 15);
+                busGroup.position.y = Math.sin(Date.now() * 0.05) * 0.04;
+            } else {
+                busGroup.position.y = 0;
+            }
+
+            // Rotate wheels
+            busGroup.children.forEach(child => {
+                if(child.geometry && child.geometry.type === "CylinderGeometry") {
+                    child.rotation.x += (speed / 10) * delta;
+                }
+            });
+
+            // Scroll roads/lights/landmarks relative elements
+            scene.traverse(child => {
+                if (child.userData && child.userData.relativeZ !== undefined && !stations.includes(child)) {
+                    child.userData.relativeZ += zSpeed;
+
+                    // Recycling
+                    if (child.userData.relativeZ > 20) {
+                        child.userData.relativeZ -= 980;
+                    }
+
+                    // Curve alignment projection
+                    const z = child.userData.relativeZ;
+                    const curveX = getRoadCurveX(distance + z);
+                    child.position.z = z;
+
+                    if (child.userData.xOffset !== undefined) {
+                        child.position.x = curveX + child.userData.xOffset;
+                        if (child.userData.heightY !== undefined) {
+                            child.position.y = child.userData.heightY;
+                        }
+                    } else {
+                        child.position.x = curveX;
+                    }
+                }
+            });
+
+            // Active station checks!
+            const station = stations[0];
+            if (station) {
+                const currentRelZ = station.userData.relativeZ + zSpeed;
+                station.userData.relativeZ = currentRelZ;
+                station.position.z = currentRelZ;
+                station.position.x = getRoadCurveX(distance + currentRelZ) + station.userData.lane;
+
+                if (!station.userData.boarded) {
+                    if (Math.abs(currentRelZ) < 5.0 && Math.abs(lateralPos - station.userData.lane) < 2.5) {
+                        if (speed <= 4.0 && speed >= -4.0 && !boardingInProgress) {
+                            boardingInProgress = true;
+                            boardingProgress = 0;
+                            boardingTargetStation = station;
+                            timeLeft = Math.min(timeLeft + 12, 85);
+                            playSoundSync(523.25, 0.25, 'sine');
+                            setTimeout(() => playSoundSync(659.25, 0.25, 'sine'), 100);
+                        } else if (!boardingInProgress) {
+                            nextStopNameVal.textContent = "PULL UP NEXT TO SHELTER & HOLD BRAKE TO OPEN DOORS!";
+                            nextStopNameVal.style.color = "#fbcfe8";
+                        }
+                    }
+                }
+            }
+
+            // Boarding pass-through animation sequences
+            if (boardingInProgress && boardingTargetStation) {
+                boardingProgress += delta * 1.5;
+                const pGroup = boardingTargetStation.userData.passengers;
+                
+                pGroup.children.forEach(pass => {
+                    pass.position.x += ((0 - pass.position.x) - boardingTargetStation.userData.lane) * 2.5 * delta;
+                    pass.scale.setScalar(Math.max(1.0 - boardingProgress, 0.05));
+                });
+
+                if (boardingProgress >= 1.0) {
+                    boardingInProgress = false;
+                    boardingTargetStation.userData.boarded = true;
+                    
+                    const scoreReward = boardingTargetStation.userData.data.count * 120;
+                    score += scoreReward;
+                    playSoundSync(880, 0.35, 'sine');
+                    
+                    scene.remove(boardingTargetStation);
+                    stations.shift();
+                    boardingTargetStation = null;
+
+                    currentStopIndex++;
+                    if (currentStopIndex < BUS_STOPS_DATA.length) {
+                        const nextStop = BUS_STOPS_DATA[currentStopIndex];
+                        spawnStop(-nextStop.distance, nextStop);
+                    } else {
+                        endGame("TRANSIT CONTRACT COMPLETED!");
+                        return;
+                    }
+                }
+            }
+
+            updateHUDStop();
+
+            const lookAheadX = getRoadCurveX(distance - 30);
+            camera.position.x = busGroup.position.x * 0.85;
+            camera.lookAt(lookAheadX, 1.8, -10);
+        }
+
+        function endGame(titleText) {
+            gameActive = false;
+            stopAudio();
+            overlayTitle.textContent = titleText;
+            overlaySub.textContent = `Transit operation finished. Your score: ${score} points! High ratings achieved from your local city line passengers!`;
+            startBtn.textContent = "DEPART AGAIN";
+            overlay.style.display = 'flex';
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = Math.min(clock.getDelta(), 0.1);
+
+            if (gameActive) {
+                handleInput(delta);
+                updateScene(delta);
+                updateAudioPitch();
+            }
+
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
+        }
+
+        window.addEventListener('resize', () => {
+            if (camera && renderer) {
+                camera.aspect = canvasContainer.clientWidth / canvasContainer.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+            }
+        });
+
+        window.addEventListener('keydown', e => {
+            keyState[e.key] = true;
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                e.preventDefault();
+            }
+        });
+        window.addEventListener('keyup', e => {
+            keyState[e.key] = false;
+        });
+
+        // Touch setups
+        document.getElementById('btn-left').addEventListener('touchstart', e => { e.preventDefault(); keyState['leftActive'] = true; });
+        document.getElementById('btn-left').addEventListener('touchend', () => keyState['leftActive'] = false);
+        document.getElementById('btn-right').addEventListener('touchstart', e => { e.preventDefault(); keyState['rightActive'] = true; });
+        document.getElementById('btn-right').addEventListener('touchend', () => keyState['rightActive'] = false);
+        
+        document.getElementById('btn-brake').addEventListener('touchstart', e => { e.preventDefault(); keyState['brakeActive'] = true; });
+        document.getElementById('btn-brake').addEventListener('touchend', () => keyState['brakeActive'] = false);
+        document.getElementById('btn-brake').addEventListener('mousedown', () => keyState['brakeActive'] = true);
+        document.getElementById('btn-brake').addEventListener('mouseup', () => keyState['brakeActive'] = false);
+
+        startBtn.addEventListener('click', () => {
+            restartGame();
+        });
+
+        initScene();
+        animate();
+    </script>
+</body>
+</html>

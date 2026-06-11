@@ -1,0 +1,6 @@
+{
+  "name": "Unblocked Games",
+  "description": "An offline-friendly unblocked arcade portal featuring retro HTML5 games like 2048, Snake, Pong, Brick Breaker, and Flappy Pixel.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

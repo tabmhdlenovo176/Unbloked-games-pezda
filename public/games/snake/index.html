@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Snake</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background-color: #0b0f19;
+            color: #f3f4f6;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            padding: 10px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            max-width: 100%;
+        }
+        .header {
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 24px;
+            color: #10b981;
+            text-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+            margin-bottom: 5px;
+        }
+        .scores {
+            display: flex;
+            gap: 20px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #9ca3af;
+        }
+        .score-val {
+            color: #34d399;
+        }
+        canvas {
+            background-color: #111827;
+            border: 4px solid #10b981;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+            border-radius: 8px;
+            max-width: 100%;
+            max-height: 70vh;
+            image-rendering: pixelated;
+        }
+        .status-overlay {
+            position: absolute;
+            background: rgba(11, 15, 25, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            padding: 20px;
+            border: 2px solid #10b981;
+            text-align: center;
+        }
+        .status-overlay h2 {
+            color: #ef4444;
+            font-size: 28px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        .btn {
+            background-color: #10b981;
+            color: #0b0f19;
+            border: none;
+            padding: 8px 16px;
+            font-family: inherit;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+            margin-top: 15px;
+            transition: all 0.2s;
+        }
+        .btn:hover {
+            background-color: #34d399;
+            transform: scale(1.05);
+        }
+        .controls-hint {
+            margin-top: 10px;
+            font-size: 11px;
+            color: #6b7280;
+            text-align: center;
+        }
+        .mobile-controls {
+            display: none;
+            grid-template-columns: repeat(3, 50px);
+            grid-template-rows: repeat(3, 50px);
+            gap: 5px;
+            margin-top: 10px;
+        }
+        @media (max-width: 768px) {
+            .mobile-controls {
+                display: grid;
+            }
+        }
+        .ctrl-btn {
+            background-color: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+        }
+        .ctrl-btn:active {
+            background-color: #10b981;
+            color: #0d1117;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>SNAKE CLASSIC</h1>
+            <div class="scores">
+                <div>SCORE: <span id="score" class="score-val">0</span></div>
+                <div>HI-SCORE: <span id="hi-score" class="score-val">0</span></div>
+            </div>
+        </div>
+
+        <div style="position: relative; display: flex; justify-content: center; align-items: center;">
+            <canvas id="gameCanvas" width="400" height="400"></canvas>
+            
+            <div id="overlay" class="status-overlay">
+                <h2 id="overlayTitle">Press Start</h2>
+                <p id="overlaySub">To feed the pixel snake</p>
+                <button id="startBtn" class="btn">START GAME</button>
+            </div>
+        </div>
+
+        <div class="mobile-controls">
+            <div></div>
+            <button class="ctrl-btn" id="ctrl-up">▲</button>
+            <div></div>
+            <button class="ctrl-btn" id="ctrl-left">◀</button>
+            <div></div>
+            <button class="ctrl-btn" id="ctrl-right">▶</button>
+            <div></div>
+            <button class="ctrl-btn" id="ctrl-down">▼</button>
+            <div></div>
+        </div>
+
+        <div class="controls-hint">
+            Use Desktop Keyboard Arrows or On-Screen buttons to play.
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const hiScoreEl = document.getElementById('hi-score');
+        const overlay = document.getElementById('overlay');
+        const overlayTitle = document.getElementById('overlayTitle');
+        const overlaySub = document.getElementById('overlaySub');
+        const startBtn = document.getElementById('startBtn');
+
+        const grid = 20;
+        let count = 0;
+        let snake = [];
+        let apple = { x: 320, y: 320 };
+        let dx = grid;
+        let dy = 0;
+        let nextDx = grid;
+        let nextDy = 0;
+        let score = 0;
+        let highScore = localStorage.getItem('snake_highScore') || 0;
+        hiScoreEl.textContent = highScore;
+        
+        let gameActive = false;
+        let loopId;
+
+        function initGame() {
+            snake = [
+                { x: 160, y: 160 },
+                { x: 140, y: 160 },
+                { x: 120, y: 160 }
+            ];
+            dx = grid;
+            dy = 0;
+            nextDx = grid;
+            nextDy = 0;
+            score = 0;
+            scoreEl.textContent = score;
+            placeApple();
+            gameActive = true;
+            overlay.style.display = 'none';
+        }
+
+        function getRandomInt(min, max) {
+            return Math.floor(Math.random() * (max - min)) + min;
+        }
+
+        function placeApple() {
+            apple.x = getRandomInt(0, 20) * grid;
+            apple.y = getRandomInt(0, 20) * grid;
+            
+            // Check if apple is placed on snake body
+            for (let segment of snake) {
+                if (segment.x === apple.x && segment.y === apple.y) {
+                    placeApple();
+                    break;
+                }
+            }
+        }
+
+        function draw() {
+            // Clear canvas
+            ctx.fillStyle = '#111827';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grid line borders faintly
+            ctx.strokeStyle = '#1f2937';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < canvas.width; i += grid) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, canvas.height);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                ctx.lineTo(canvas.width, i);
+                ctx.stroke();
+            }
+
+            if (!gameActive) return;
+
+            // Draw Apple (Retro neon red pixel square with core)
+            ctx.fillStyle = '#f87171';
+            ctx.fillRect(apple.x, apple.y, grid, grid);
+            ctx.fillStyle = '#ef4444';
+            ctx.fillRect(apple.x + 4, apple.y + 4, grid - 8, grid - 8);
+
+            // Update Direction from queued user input
+            dx = nextDx;
+            dy = nextDy;
+
+            // Snake movement
+            const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+
+            // Wall collision
+            if (head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height) {
+                endGame();
+                return;
+            }
+
+            // Self collision
+            for (let element of snake) {
+                if (head.x === element.x && head.y === element.y) {
+                    endGame();
+                    return;
+                }
+            }
+
+            snake.unshift(head);
+
+            // Check if eating apple
+            if (head.x === apple.x && head.y === apple.y) {
+                score += 10;
+                scoreEl.textContent = score;
+                if (score > highScore) {
+                    highScore = score;
+                    localStorage.setItem('snake_highScore', highScore);
+                    hiScoreEl.textContent = highScore;
+                }
+                placeApple();
+            } else {
+                snake.pop();
+            }
+
+            // Draw Snake
+            snake.forEach((cell, index) => {
+                // Gradient snake head vs body
+                ctx.fillStyle = index === 0 ? '#10b981' : '#34d399';
+                ctx.fillRect(cell.x + 1, cell.y + 1, grid - 2, grid - 2);
+                
+                // Head eyes
+                if (index === 0) {
+                    ctx.fillStyle = '#0b0f19';
+                    ctx.fillRect(cell.x + 4, cell.y + 4, 3, 3);
+                    ctx.fillRect(cell.x + 12, cell.y + 4, 3, 3);
+                }
+            });
+        }
+
+        function gameLoop() {
+            if (gameActive) {
+                // Adjust speed based on score (starts smooth, increases speed)
+                const speedDivider = Math.max(4, 9 - Math.floor(score / 50));
+                if (++count >= speedDivider) {
+                    draw();
+                    count = 0;
+                }
+            } else {
+                draw();
+            }
+            loopId = requestAnimationFrame(gameLoop);
+        }
+
+        function endGame() {
+            gameActive = false;
+            overlayTitle.textContent = "GAME OVER";
+            overlaySub.textContent = "Final Score: " + score;
+            startBtn.textContent = "TRY AGAIN";
+            overlay.style.display = 'flex';
+        }
+
+        // Keyboard Controls
+        document.addEventListener('keydown', (e) => {
+            if (!gameActive) return;
+
+            // Prevent scroll
+            if ([37, 38, 39, 40].includes(e.keyCode)) {
+                e.preventDefault();
+            }
+
+            if (e.which === 37 && dx === 0) { // Left arrow
+                nextDx = -grid;
+                nextDy = 0;
+            } else if (e.which === 38 && dy === 0) { // Up arrow
+                nextDx = 0;
+                nextDy = -grid;
+            } else if (e.which === 39 && dx === 0) { // Right arrow
+                nextDx = grid;
+                nextDy = 0;
+            } else if (e.which === 40 && dy === 0) { // Down arrow
+                nextDx = 0;
+                nextDy = grid;
+            }
+        });
+
+        // Click buttons mapping
+        function handleDirection(dir) {
+            if (!gameActive) return;
+            if (dir === 'up' && dy === 0) {
+                nextDx = 0;
+                nextDy = -grid;
+            } else if (dir === 'left' && dx === 0) {
+                nextDx = -grid;
+                nextDy = 0;
+            } else if (dir === 'right' && dx === 0) {
+                nextDx = grid;
+                nextDy = 0;
+            } else if (dir === 'down' && dy === 0) {
+                nextDx = 0;
+                nextDy = grid;
+            }
+        }
+
+        document.getElementById('ctrl-up').addEventListener('click', () => handleDirection('up'));
+        document.getElementById('ctrl-left').addEventListener('click', () => handleDirection('left'));
+        document.getElementById('ctrl-right').addEventListener('click', () => handleDirection('right'));
+        document.getElementById('ctrl-down').addEventListener('click', () => handleDirection('down'));
+
+        startBtn.addEventListener('click', () => {
+            initGame();
+        });
+
+        // Initialize state
+        draw();
+        gameLoop();
+    </script>
+</body>
+</html>

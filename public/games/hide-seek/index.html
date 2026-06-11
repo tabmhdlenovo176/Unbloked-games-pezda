@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Hide & Seek 3D</title>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+        body {
+            background-color: #020617;
+            color: #38bdf8;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            padding: 10px;
+        }
+        .container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .header {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-bottom: 10px;
+            border: 2px solid #06b6d4;
+            background: rgba(15, 23, 42, 0.95);
+            padding: 10px 14px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.25);
+        }
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        h1 {
+            font-size: 18px;
+            color: #06b6d4;
+            text-shadow: 0 0 8px rgba(6, 182, 212, 0.7);
+            letter-spacing: 1px;
+            font-weight: 800;
+        }
+        .hud {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            font-size: 11px;
+            font-weight: bold;
+            color: #38bdf8;
+            margin-top: 5px;
+        }
+        .highlight {
+            color: #f43f5e;
+        }
+        #canvasContainer {
+            width: 100%;
+            aspect-ratio: 4 / 3;
+            background: #000;
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid #06b6d4;
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.15);
+        }
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
+        }
+        .overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.92);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            text-align: center;
+            padding: 24px;
+        }
+        .overlay h2 {
+            font-size: 26px;
+            color: #22d3ee;
+            margin-bottom: 10px;
+            text-shadow: 0 0 12px rgba(34, 211, 238, 0.8);
+            font-weight: 900;
+        }
+        .overlay p {
+            font-size: 13px;
+            color: #94a3b8;
+            margin-bottom: 22px;
+            max-width: 440px;
+            line-height: 1.6;
+        }
+        .btn {
+            background: linear-gradient(135deg, #0891b2, #06b6d4);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 6px;
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 25px rgba(6, 182, 212, 0.7);
+        }
+        .btn-ping {
+            background: #0f172a;
+            border: 1px solid #22d3ee;
+            color: #22d3ee;
+            padding: 4px 10px;
+            font-size: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+            font-family: inherit;
+        }
+        .btn-ping:active {
+            background: #22d3ee;
+            color: #000;
+        }
+        /* Touch Directional Controls Overlay */
+        .controls-overlay {
+            position: absolute;
+            left: 15px;
+            bottom: 15px;
+            display: grid;
+            grid-template-columns: repeat(3, 42px);
+            grid-template-rows: repeat(3, 42px);
+            gap: 5px;
+            pointer-events: auto;
+            z-index: 5;
+        }
+        .ctrl-btn {
+            width: 42px;
+            height: 42px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid #22d3ee;
+            border-radius: 6px;
+            color: #22d3ee;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+        .ctrl-btn:active {
+            background: #22d3ee;
+            color: #0f172a;
+            transform: scale(0.9);
+        }
+        .ping-indicator {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(15, 23, 42, 0.85);
+            color: #22d3ee;
+            border: 1px solid #14b8a6;
+            padding: 8px 12px;
+            border-radius: 6px;
+            pointer-events: auto;
+            font-size: 10px;
+            font-weight: bold;
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.1);
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(6, 182, 212, 0.2);
+            font-size: 11px;
+            color: #94a3b8;
+        }
+        .stats-grid div span {
+            color: #22d3ee;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- HEADER / HUD PANEL -->
+        <div class="header">
+            <div class="header-top">
+                <h1>NEON TRACKER 3D</h1>
+                <div style="font-size: 11px; color: #22d3ee; font-weight: bold;">
+                    LEVEL: <span id="levelVal">1</span>
+                </div>
+            </div>
+            <div class="hud">
+                <div>SECTOR TIME: <span id="timerVal" class="highlight">45s</span></div>
+                <div>HIDERS TAGGED: <span id="hidersVal" style="color:#10b981;">0 / 5</span></div>
+                <div>SCORE: <span id="scoreVal" style="color: #facc15;">0</span></div>
+            </div>
+        </div>
+
+        <!-- 3D PLAYING STAGE -->
+        <div id="canvasContainer">
+            <!-- Startup / Game Over panel -->
+            <div id="startOverlay" class="overlay">
+                <h2 id="overlayTitle">NEON HIDE & SEEK</h2>
+                <p id="overlaySub">
+                    Identify and tag <strong style="color: #22d3ee;">5 rogue hiders</strong> camouflaged 
+                    behind cybernetic structures. Use your <strong>PROXIMITY SONAR</strong> to locate target signals! 
+                    Get within range of hiders to reveal and tag them.
+                </p>
+                <div class="stats-grid">
+                    <div>TOTAL CAPTURES: <span id="statCaptures">0</span></div>
+                    <div>SECTOR CLEARED: <span id="statCleared">0</span></div>
+                </div>
+                <button id="startBtn" class="btn">INITIALIZE CORE SCAN</button>
+            </div>
+
+            <!-- Ping Action Button -->
+            <div class="ping-indicator">
+                SONAR FEEDback
+                <div style="margin-top: 4px; display: flex; align-items: center; justify-content: space-between;">
+                    <span id="proximityText" style="color: #fbbf24;">STANDBY</span>
+                    <button class="btn-ping" id="pingBtn">PING RADAR</button>
+                </div>
+            </div>
+
+            <!-- Custom 4-way arrow clicker pad for seamless touch inputs -->
+            <div class="controls-overlay">
+                <div></div>
+                <div class="ctrl-btn" id="upBtn">▲</div>
+                <div></div>
+                <div class="ctrl-btn" id="leftBtn">◀</div>
+                <div class="ctrl-btn" id="actBtn">●</div>
+                <div class="ctrl-btn" id="rightBtn">▶</div>
+                <div></div>
+                <div class="ctrl-btn" id="downBtn">▼</div>
+                <div></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM targets
+        const startOverlay = document.getElementById('startOverlay');
+        const overlayTitle = document.getElementById('overlayTitle');
+        const overlaySub = document.getElementById('overlaySub');
+        const startBtn = document.getElementById('startBtn');
+        const timerVal = document.getElementById('timerVal');
+        const hidersVal = document.getElementById('hidersVal');
+        const scoreVal = document.getElementById('scoreVal');
+        const levelVal = document.getElementById('levelVal');
+        const proximityText = document.getElementById('proximityText');
+        const pingBtn = document.getElementById('pingBtn');
+        const canvasContainer = document.getElementById('canvasContainer');
+
+        const statCaptures = document.getElementById('statCaptures');
+        const statCleared = document.getElementById('statCleared');
+
+        // Directional touch buttons
+        const upBtn = document.getElementById('upBtn');
+        const leftBtn = document.getElementById('leftBtn');
+        const downBtn = document.getElementById('downBtn');
+        const rightBtn = document.getElementById('rightBtn');
+        const actBtn = document.getElementById('actBtn');
+
+        // Web Audio synthetics
+        let audioCtx;
+        function initAudio() {
+            if (audioCtx) return;
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            } catch(e) {}
+        }
+
+        function playSynthTone(freq, duration, type = 'sine', decayLevel = 0.001) {
+            if (!audioCtx) return;
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(decayLevel, audioCtx.currentTime + duration);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch(e) {}
+        }
+
+        function triggerPingSound() {
+            // Echo chime sonar
+            playSynthTone(587.33, 0.15, 'sine');
+            setTimeout(() => playSynthTone(880.00, 0.4, 'sine', 0.001), 100);
+        }
+
+        function triggerHiderTagSound() {
+            // High upward laser sweep
+            playSynthTone(440, 0.1, 'triangle');
+            setTimeout(() => playSynthTone(659, 0.1, 'triangle'), 60);
+            setTimeout(() => playSynthTone(987, 0.2, 'sine'), 120);
+        }
+
+        function triggerErrorSound() {
+            playSynthTone(130, 0.35, 'sawtooth');
+        }
+
+        // Gameplay state
+        let scene, camera, renderer;
+        let seekerMesh, boundaryBox;
+        let obstacles = [];
+        let hiders = [];
+        
+        let level = 1;
+        let score = 0;
+        let timeLeft = 45;
+        let hidersTagged = 0;
+        const totalLevelHiders = 5;
+        let gameActive = false;
+
+        let totalSectorsCleared = 0;
+        let totalCapturesCount = 0;
+
+        let keyState = {};
+        const arenaSize = 24; // boundary bounds
+
+        function initScene() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x060c18);
+            scene.fog = new THREE.FogExp2(0x060c18, 0.022);
+
+            // Orthographic-like high perspective camera
+            camera = new THREE.PerspectiveCamera(50, canvasContainer.clientWidth / canvasContainer.clientHeight, 0.1, 1000);
+            camera.position.set(0, 24, 20);
+            camera.lookAt(0, -0.5, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            // Clean older layers
+            const prevNav = canvasContainer.querySelector('canvas');
+            if (prevNav) canvasContainer.removeChild(prevNav);
+            canvasContainer.appendChild(renderer.domElement);
+
+            // Lights
+            const ambient = new THREE.AmbientLight(0xffffff, 0.3);
+            scene.add(ambient);
+
+            // Red & Cyan area highlight point lights
+            const cyanLight = new THREE.PointLight(0x06b6d4, 1.5, 50);
+            cyanLight.position.set(-11, 4, -11);
+            scene.add(cyanLight);
+
+            const pinkLight = new THREE.PointLight(0xf43f5e, 1.3, 50);
+            pinkLight.position.set(11, 4, 11);
+            scene.add(pinkLight);
+
+            // Arena grid floor
+            const floorGeo = new THREE.PlaneGeometry(arenaSize * 2, arenaSize * 2);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x070f1e, roughness: 0.9, metalness: 0.1 });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            scene.add(floor);
+
+            // Visual grid helper overlay
+            const cyberGrid = new THREE.GridHelper(arenaSize * 2, 24, 0x14b8a6, 0x111e35);
+            cyberGrid.position.y = 0.02;
+            scene.add(cyberGrid);
+
+            // Outer fencing
+            const fenceGeo = new THREE.BoxGeometry(arenaSize * 2 + 1, 1.2, 0.4);
+            const fenceMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
+            
+            const fenceN = new THREE.Mesh(fenceGeo, fenceMat); fenceN.position.set(0, 0.6, -arenaSize); scene.add(fenceN);
+            const fenceS = fenceN.clone(); fenceS.position.z = arenaSize; scene.add(fenceS);
+            
+            const fenceW = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.2, arenaSize * 2 + 1), fenceMat);
+            fenceW.position.set(-arenaSize, 0.6, 0); scene.add(fenceW);
+            const fenceE = fenceW.clone(); fenceE.position.x = arenaSize; scene.add(fenceE);
+
+            // Create Seeker Drone (Player sphere with search cone light)
+            seekerMesh = new THREE.Group();
+            
+            const coreGeo = new THREE.SphereGeometry(0.72, 12, 12);
+            const coreMat = new THREE.MeshStandardMaterial({ 
+                color: 0x22d3ee, 
+                emissive: 0x22d3ee, 
+                emissiveIntensity: 0.5,
+                metalness: 0.8
+            });
+            const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+            seekerMesh.add(coreMesh);
+
+            // Ring sensor around seeker
+            const compassRing = new THREE.Mesh(
+                new THREE.RingGeometry(0.95, 1.1, 12),
+                new THREE.MeshBasicMaterial({ color: 0x06b6d4, side: THREE.DoubleSide })
+            );
+            compassRing.rotation.x = Math.PI/2;
+            compassRing.position.y = -0.3;
+            seekerMesh.add(compassRing);
+
+            seekerMesh.position.set(0, 0.9, 0);
+            scene.add(seekerMesh);
+
+            // Rebuild map sector nodes & spawn hidden units
+            prepareArenaStructures();
+        }
+
+        // Generates static column blocks behind which hiders can hide
+        function prepareArenaStructures() {
+            // Clean older entities
+            obstacles.forEach(o => scene.remove(o));
+            obstacles = [];
+
+            hiders.forEach(h => scene.remove(h.mesh));
+            hiders = [];
+
+            // Preset structural points where columns spawn
+            const structurePositions = [
+                // Top quadrant
+                { x: -7, z: -8, sizeX: 4, sizeZ: 4, height: 3.5 },
+                { x: 8, z: -7, sizeX: 3, sizeZ: 3, height: 4.8 },
+                { x: 0, z: -12, sizeX: 8, sizeZ: 2, height: 4.0 },
+                // Bottom quadrant
+                { x: -9, z: 9, sizeX: 3, sizeZ: 5, height: 3.8 },
+                { x: 9, z: 8, sizeX: 5, sizeZ: 3, height: 3.5 },
+                { x: -1, z: 12, sizeX: 6, sizeZ: 3, height: 4.2 },
+                // Center/Sides quadrant
+                { x: -14, z: 0, sizeX: 3, sizeZ: 6, height: 4.0 },
+                { x: 13, z: -1, sizeX: 4, sizeZ: 4, height: 5.2 },
+                { x: -6, z: -1, sizeX: 2, sizeZ: 4, height: 3.0 },
+                { x: 6, z: 1, sizeX: 2, sizeZ: 4, height: 3.0 }
+            ];
+
+            structurePositions.forEach(pos => {
+                const geo = new THREE.BoxGeometry(pos.sizeX, pos.height, pos.sizeZ);
+                const mat = new THREE.MeshStandardMaterial({ 
+                    color: 0x111827, 
+                    roughness: 0.7,
+                    metalness: 0.3 
+                });
+                const box = new THREE.Mesh(geo, mat);
+                box.position.set(pos.x, pos.height / 2, pos.z);
+                scene.add(box);
+                obstacles.push(box);
+
+                // Add stylized cyan glowing corner markers representing terminal consoles
+                const trimGeo = new THREE.BoxGeometry(0.12, pos.height, 0.12);
+                const trimMat = new THREE.MeshBasicMaterial({ color: 0x06b6d4 });
+                
+                const trim1 = new THREE.Mesh(trimGeo, trimMat);
+                trim1.position.set(pos.x - pos.sizeX/2, pos.height/2, pos.z - pos.sizeZ/2);
+                scene.add(trim1);
+                obstacles.push(trim1);
+
+                const trim2 = trim1.clone();
+                trim2.position.set(pos.x + pos.sizeX/2, pos.height/2, pos.z + pos.sizeZ/2);
+                scene.add(trim2);
+                obstacles.push(trim2);
+            });
+
+            // Spawn hiders in close proximity to structures/obstacles (behind columns)
+            const hiderColors = [0xec4899, 0x10b981, 0xf59e0b, 0x8b5cf6, 0xeab308];
+            const naming = ["Delta-9", "Theta-X", "Echo-V", "Sigma-3", "Aero-4"];
+
+            for (let i = 0; i < totalLevelHiders; i++) {
+                // Find a shelter spot near one of the structures, offset back
+                const spot = structurePositions[(i * 2) % structurePositions.length];
+                
+                // Offset spot slightly: north/south/east/west
+                const offsets = [
+                    { x: -posOffset(spot.sizeX), z: 0 },
+                    { x: posOffset(spot.sizeX), z: 0 },
+                    { x: 0, z: -posOffset(spot.sizeZ) },
+                    { x: 0, z: posOffset(spot.sizeZ) }
+                ];
+                const choice = offsets[i % offsets.length];
+
+                let xFinal = spot.x + choice.x;
+                let zFinal = spot.z + choice.z;
+
+                // Keep inside fence bounds
+                xFinal = Math.max(Math.min(xFinal, arenaSize - 2.5), -arenaSize + 2.5);
+                zFinal = Math.max(Math.min(zFinal, arenaSize - 2.5), -arenaSize + 2.5);
+
+                // Build Hider model group
+                // Hiders are small cylinder cores with an outer spinning neon crystal
+                const hiderGroup = new THREE.Group();
+
+                // Core capsule
+                const capGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.9, 8);
+                const capMat = new THREE.MeshStandardMaterial({ 
+                    color: 0x1e293b, 
+                    roughness: 0.1 
+                });
+                const capsule = new THREE.Mesh(capGeo, capMat);
+                hiderGroup.add(capsule);
+
+                // Top jewel (revealed in gorgeous glowing light color only when tagged/scanned close!)
+                const crystalGeo = new THREE.OctahedronGeometry(0.5);
+                const crystalMat = new THREE.MeshBasicMaterial({ 
+                    color: hiderColors[i],
+                    transparent: true,
+                    opacity: 0.15 // mostly transparent or cloaked until seeker gets extremely close!
+                });
+                const crystal = new THREE.Mesh(crystalGeo, crystalMat);
+                crystal.position.y = 0.65;
+                crystal.name = "stealthCore";
+                hiderGroup.add(crystal);
+
+                hiderGroup.position.set(xFinal, 0.45, zFinal);
+                scene.add(hiderGroup);
+
+                hiders.push({
+                    name: naming[i],
+                    mesh: hiderGroup,
+                    colorHex: hiderColors[i],
+                    tagged: false,
+                    shelterX: xFinal,
+                    shelterZ: zFinal,
+                    stealthRating: 0.2 + (i * 0.15)
+                });
+            }
+        }
+
+        function posOffset(size) {
+            return (size / 2) + 0.85;
+        }
+
+        // Radar/Sonar Scan Trigger algorithm (Finds closest untagged hider distance)
+        function triggerProximitySonar() {
+            if (!gameActive) return;
+            initAudio();
+            triggerPingSound();
+
+            let minDistance = 999;
+            let closestHider = null;
+
+            hiders.forEach(h => {
+                if (!h.tagged) {
+                    const dist = seekerMesh.position.distanceTo(h.mesh.position);
+                    if (dist < minDistance) {
+                        minDistance = dist;
+                        closestHider = h;
+                    }
+                }
+            });
+
+            if (closestHider) {
+                const cleanDistStr = Math.round(minDistance) + "m";
+                proximityText.textContent = cleanDistStr;
+                
+                // Turn text red or green based on warning danger thresholds
+                if (minDistance < 6) {
+                    proximityText.style.color = "#10b981"; // extremely close
+                } else if (minDistance < 13) {
+                    proximityText.style.color = "#fbbf24"; // medium
+                } else {
+                    proximityText.style.color = "#22d3ee"; // far
+                }
+
+                // Temporary expand beacon visual
+                spawnProximityRing(seekerMesh.position.x, seekerMesh.position.z, minDistance);
+            } else {
+                proximityText.textContent = "CLEAR";
+                proximityText.style.color = "#a855f7";
+            }
+        }
+
+        // Expanded glowing flat cyber ring on radar beam ping
+        function spawnProximityRing(x, z, r) {
+            const circleGeo = new THREE.RingGeometry(0.1, 0.2, 24);
+            const circleMat = new THREE.MeshBasicMaterial({ 
+                color: 0x22d3ee, 
+                side: THREE.DoubleSide, 
+                transparent: true, 
+                opacity: 0.85 
+            });
+            const ring = new THREE.Mesh(circleGeo, circleMat);
+            ring.rotation.x = -Math.PI/2;
+            ring.position.set(x, 0.05, z);
+            scene.add(ring);
+
+            let scale = 1.0;
+            const targetScale = r * 1.5;
+            
+            function animateRing() {
+                if (!scene) return;
+                scale += (targetScale - scale) * 0.08;
+                ring.scale.set(scale, scale, 1);
+                ring.material.opacity = 1.0 - (scale / targetScale);
+
+                if (scale < targetScale - 0.2) {
+                    requestAnimationFrame(animateRing);
+                } else {
+                    scene.remove(ring);
+                }
+            }
+            animateRing();
+        }
+
+        // Navigation state setup
+        window.addEventListener('keydown', e => {
+            keyState[e.key] = true;
+            keyState[e.code] = true;
+        });
+
+        window.addEventListener('keyup', e => {
+            keyState[e.key] = false;
+            keyState[e.code] = false;
+        });
+
+        // Setup tactile pad bindings
+        upBtn.addEventListener('mousedown', () => keyState['ArrowUp'] = true);
+        upBtn.addEventListener('mouseup', () => keyState['ArrowUp'] = false);
+        upBtn.addEventListener('mouseleave', () => keyState['ArrowUp'] = false);
+        upBtn.addEventListener('touchstart', e => { e.preventDefault(); keyState['ArrowUp'] = true; });
+        upBtn.addEventListener('touchend', () => keyState['ArrowUp'] = false);
+
+        downBtn.addEventListener('mousedown', () => keyState['ArrowDown'] = true);
+        downBtn.addEventListener('mouseup', () => keyState['ArrowDown'] = false);
+        downBtn.addEventListener('mouseleave', () => keyState['ArrowDown'] = false);
+        downBtn.addEventListener('touchstart', e => { e.preventDefault(); keyState['ArrowDown'] = true; });
+        downBtn.addEventListener('touchend', () => keyState['ArrowDown'] = false);
+
+        leftBtn.addEventListener('mousedown', () => keyState['ArrowLeft'] = true);
+        leftBtn.addEventListener('mouseup', () => keyState['ArrowLeft'] = false);
+        leftBtn.addEventListener('mouseleave', () => keyState['ArrowLeft'] = false);
+        leftBtn.addEventListener('touchstart', e => { e.preventDefault(); keyState['ArrowLeft'] = true; });
+        leftBtn.addEventListener('touchend', () => keyState['ArrowLeft'] = false);
+
+        rightBtn.addEventListener('mousedown', () => keyState['ArrowRight'] = true);
+        rightBtn.addEventListener('mouseup', () => keyState['ArrowRight'] = false);
+        rightBtn.addEventListener('mouseleave', () => keyState['ArrowRight'] = false);
+        rightBtn.addEventListener('touchstart', e => { e.preventDefault(); keyState['ArrowRight'] = true; });
+        rightBtn.addEventListener('touchend', () => keyState['ArrowRight'] = false);
+
+        actBtn.addEventListener('click', triggerProximitySonar);
+        pingBtn.addEventListener('click', triggerProximitySonar);
+
+        function updateHUD() {
+            timerVal.textContent = Math.ceil(timeLeft) + "s";
+            hidersVal.textContent = `${hidersTagged} / ${totalLevelHiders}`;
+            scoreVal.textContent = score;
+            levelVal.textContent = level;
+        }
+
+        function resetGame() {
+            initAudio();
+
+            gameActive = true;
+            timeLeft = 45;
+            hidersTagged = 0;
+            score = 0;
+            level = 1;
+
+            totalSectorsCleared = 0;
+            totalCapturesCount = 0;
+
+            seekerMesh.position.set(0, 0.9, 0);
+
+            prepareArenaStructures();
+            updateHUD();
+            
+            proximityText.textContent = "STANDBY";
+            proximityText.style.color = "#fbbf24";
+            
+            startOverlay.style.display = 'none';
+        }
+
+        function triggerNextLevel() {
+            level++;
+            totalSectorsCleared++;
+            timeLeft = Math.min(timeLeft + 25, 80); // time extension
+            hidersTagged = 0;
+
+            seekerMesh.position.set(0, 0.9, 0);
+            
+            prepareArenaStructures();
+            updateHUD();
+
+            triggerPingSound();
+            proximityText.textContent = "ADVANCING";
+            proximityText.style.color = "#10b981";
+        }
+
+        function endGame(titleText) {
+            gameActive = false;
+            
+            overlayTitle.textContent = titleText;
+            overlaySub.textContent = `Completed Level ${level} in scanner sector, locating arean anomalies! Total Core score achieved: ${score} points!`;
+            
+            statCaptures.textContent = totalCapturesCount;
+            statCleared.textContent = totalSectorsCleared;
+
+            const btn = document.getElementById('startBtn');
+            btn.textContent = "RE-BOOT SENSORS";
+            startOverlay.style.display = 'flex';
+        }
+
+        // Collision checkers (Prevents seeker from moving inside columns/obstacles)
+        function checkCollisions(nextX, nextZ) {
+            // Field boundary fencing
+            const cushion = 0.85;
+            if (Math.abs(nextX) > arenaSize - cushion || Math.abs(nextZ) > arenaSize - cushion) {
+                return true;
+            }
+
+            // Pillar box obstacle overlaps
+            for (let i = 0; i < obstacles.length; i++) {
+                const obs = obstacles[i];
+                if (!obs.geometry || obs.geometry.type !== "BoxGeometry") continue;
+
+                const boundsX = obs.geometry.parameters.width / 2 + 0.65;
+                const boundsZ = obs.geometry.parameters.depth / 2 + 0.65;
+
+                if (Math.abs(nextX - obs.position.x) < boundsX && Math.abs(nextZ - obs.position.z) < boundsZ) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Animation updates
+        let lastTime = 0;
+        function animate(timestamp) {
+            requestAnimationFrame(animate);
+
+            if (!lastTime) lastTime = timestamp;
+            let delta = (timestamp - lastTime) / 1000;
+            if (delta > 0.1) delta = 0.1;
+            lastTime = timestamp;
+
+            if (gameActive) {
+                // Decay clock countdown
+                timeLeft -= delta;
+                updateHUD();
+
+                if (timeLeft <= 0) {
+                    endGame("DECOY COOLDOWN REACHED!");
+                    return;
+                }
+
+                // Player physical movement
+                let dirX = 0;
+                let dirZ = 0;
+
+                if (keyState['ArrowUp'] || keyState['w'] || keyState['W']) dirZ = -1;
+                if (keyState['ArrowDown'] || keyState['s'] || keyState['S']) dirZ = 1;
+                if (keyState['ArrowLeft'] || keyState['a'] || keyState['A']) dirX = -1;
+                if (keyState['ArrowRight'] || keyState['d'] || keyState['D']) dirX = 1;
+
+                // Diagonal velocity balancing
+                if (dirX !== 0 && dirZ !== 0) {
+                    dirX *= 0.7071;
+                    dirZ *= 0.7071;
+                }
+
+                const moveDistance = 11.0 * delta;
+                if (dirX !== 0 || dirZ !== 0) {
+                    const nextX = seekerMesh.position.x + dirX * moveDistance;
+                    const nextY = seekerMesh.position.z + dirZ * moveDistance;
+
+                    if (!checkCollisions(nextX, seekerMesh.position.z)) {
+                        seekerMesh.position.x = nextX;
+                    }
+                    if (!checkCollisions(seekerMesh.position.x, nextY)) {
+                        seekerMesh.position.z = nextY;
+                    }
+
+                    // Spin sensor slightly during locomotion
+                    seekerMesh.rotation.y += 3.5 * delta;
+                }
+
+                // Smoothly update camera tracking relative to player positions
+                const targetCameraX = seekerMesh.position.x;
+                const targetCameraZ = seekerMesh.position.z + 18;
+                camera.position.x += (targetCameraX - camera.position.x) * 0.08;
+                camera.position.z += (targetCameraZ - camera.position.z) * 0.08;
+                camera.lookAt(seekerMesh.position.x, 0.4, seekerMesh.position.z);
+
+                // Check Proximity thresholds to hiders to reveal them!
+                hiders.forEach(h => {
+                    if (!h.tagged) {
+                        const distToSeeker = seekerMesh.position.distanceTo(h.mesh.position);
+                        
+                        // Spin cloaked crystal element
+                        h.mesh.rotation.y += 2.0 * delta;
+
+                        // Reveal when search cone is close
+                        const secretCore = h.mesh.getObjectByName("stealthCore");
+                        if (distToSeeker < 5.0) {
+                            // Turn crystal translucent as seeker gets closer
+                            if (secretCore) {
+                                secretCore.material.opacity = 1.0 - (distToSeeker / 5.0);
+                            }
+                        } else {
+                            if (secretCore) secretCore.material.opacity = 0.15;
+                        }
+
+                        // Close range overlap TAGS them
+                        if (distToSeeker < 1.7) {
+                            h.tagged = true;
+                            hidersTagged++;
+                            totalCapturesCount++;
+                            score += 200 * level;
+                            timeLeft = Math.min(timeLeft + 11, 80);
+
+                            triggerHiderTagSound();
+
+                            // Spin tag graphic reaction: slide upwards and vanish
+                            let riseProgress = 0;
+                            function tagVanishAnimation() {
+                                if (!scene) return;
+                                riseProgress += 0.06;
+                                h.mesh.position.y += 0.18;
+                                h.mesh.scale.setScalar(1.0 - riseProgress);
+
+                                if (riseProgress < 1.0) {
+                                    requestAnimationFrame(tagVanishAnimation);
+                                } else {
+                                    scene.remove(h.mesh);
+                                }
+                            }
+                            tagVanishAnimation();
+                            updateHUD();
+
+                            // Win detection for stage clears
+                            if (hidersTagged >= totalLevelHiders) {
+                                triggerNextLevel();
+                            }
+                        }
+                    }
+                });
+            }
+
+            if (renderer) {
+                renderer.render(scene, camera);
+            }
+        }
+
+        // Resize support
+        window.addEventListener('resize', () => {
+            if (!camera || !renderer) return;
+            camera.aspect = canvasContainer.clientWidth / canvasContainer.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+        });
+
+        // Trigger reset
+        startBtn.addEventListener('click', resetGame);
+
+        // Run
+        initScene();
+        requestAnimationFrame(animate);
+    </script>
+</body>
+</html>

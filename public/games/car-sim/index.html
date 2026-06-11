@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Car Simulator</title>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+        body {
+            background-color: #030712;
+            color: #f3f4f6;
+            font-family: 'JetBrains Mono', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            padding: 10px;
+        }
+        .container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        h1 {
+            font-size: 20px;
+            color: #10b981;
+            text-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+            text-transform: uppercase;
+        }
+        .hud {
+            display: flex;
+            gap: 15px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+        .highlight {
+            color: #10b981;
+        }
+        #canvasContainer {
+            width: 100%;
+            aspect-ratio: 4 / 3;
+            background-color: #0b0f19;
+            border: 3px solid #10b981;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+        }
+        .overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(11, 15, 25, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            text-align: center;
+            padding: 20px;
+            border-radius: 6px;
+        }
+        .overlay h2 {
+            color: #10b981;
+            font-size: 24px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+        .overlay p {
+            font-size: 11px;
+            color: #9ca3af;
+            margin-bottom: 18px;
+            max-width: 280px;
+            line-height: 1.4;
+        }
+        .btn {
+            background-color: #10b981;
+            color: #030712;
+            border: none;
+            padding: 10px 20px;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .btn:hover {
+            background-color: #34d399;
+            transform: scale(1.05);
+        }
+        .controls-hint {
+            margin-top: 10px;
+            font-size: 11px;
+            color: #6b7280;
+            text-align: center;
+        }
+        .mobile-controls {
+            display: none;
+            width: 100%;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+        @media (max-width: 768px) {
+            .mobile-controls {
+                display: grid;
+            }
+        }
+        .ctrl-btn {
+            background-color: #111827;
+            border: 1px solid #1f2937;
+            color: #fff;
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: bold;
+            cursor: pointer;
+            touch-action: none;
+        }
+        .ctrl-btn:active {
+            background-color: #10b981;
+            color: #030712;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>NEON CAR DRIVER</h1>
+            <div class="hud">
+                <div>SPEED: <span id="speedVal" class="highlight">0</span> KM/H</div>
+                <div>DIST: <span id="distVal" class="highlight">0</span> M</div>
+            </div>
+        </div>
+
+        <div id="canvasContainer">
+            <div id="overlay" class="overlay">
+                <h2 id="overlayTitle">CAR SIMULATOR 3D</h2>
+                <p id="overlaySub">Maintain high speeds and dodge incoming neon retro obstacles. Features fully kinetic driving physics!</p>
+                <button id="startBtn" class="btn">IGNITION START</button>
+            </div>
+        </div>
+
+        <div class="mobile-controls">
+            <button class="ctrl-btn" id="btn-left">◀ STEER LEFT</button>
+            <div class="ctrl-btn" id="btn-brake">BRAKE / S</div>
+            <button class="ctrl-btn" id="btn-right">STEER RIGHT ▶</button>
+        </div>
+
+        <div class="controls-hint">
+            Use Desktop Arrows / WASD to Steer & Control Speed. Hold UP to accelerate.
+        </div>
+    </div>
+
+    <script>
+        const canvasContainer = document.getElementById('canvasContainer');
+        const overlay = document.getElementById('overlay');
+        const overlayTitle = document.getElementById('overlayTitle');
+        const overlaySub = document.getElementById('overlaySub');
+        const startBtn = document.getElementById('startBtn');
+        const speedVal = document.getElementById('speedVal');
+        const distVal = document.getElementById('distVal');
+
+        let scene, camera, renderer;
+        let playerCar, road, obstacles = [];
+        let keyState = {};
+        
+        let gameActive = false;
+        let speed = 0;
+        const maxSpeed = 150;
+        let distance = 0;
+        let lateralPos = 0; // -10 to 10
+        let clock = new THREE.Clock();
+
+        // Audio synth logic
+        let audioCtx, osc, gainNode;
+        function initAudio() {
+            if (audioCtx) return;
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                osc = audioCtx.createOscillator();
+                gainNode = audioCtx.createGain();
+                
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(50, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+                
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                osc.start();
+            } catch (e) {
+                console.warn("Audio Context init blocked");
+            }
+        }
+
+        function updateAudioPitch() {
+            if (!osc || !gainNode) return;
+            if (!gameActive || speed < 1) {
+                gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+            } else {
+                gainNode.gain.setTargetAtTime(0.04, audioCtx.currentTime, 0.1);
+                // Pitch based on speed
+                const pitch = 45 + (speed / maxSpeed) * 140;
+                osc.frequency.setTargetAtTime(pitch, audioCtx.currentTime, 0.1);
+            }
+        }
+
+        function stopAudio() {
+            if (gainNode) {
+                gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            }
+        }
+
+        function getRoadCurveX(z) {
+            // Organic s-curves of varying lengths and amplitudes representing a real serpentine mountain road!
+            return Math.sin(z * 0.007) * 9.5 + Math.cos(z * 0.015) * 4.5;
+        }
+
+        function initScene() {
+            // Scene Setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x05070f);
+            scene.fog = new THREE.FogExp2(0x05070f, 0.012);
+
+            // Camera Setup
+            camera = new THREE.PerspectiveCamera(60, canvasContainer.clientWidth / canvasContainer.clientHeight, 0.1, 1000);
+            camera.position.set(0, 5, 12);
+            camera.lookAt(0, 2, 0);
+
+            // Renderer Setup
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+            renderer.shadowMap.enabled = true;
+            
+            // Remove previous renderer if any
+            const existingCanvas = canvasContainer.querySelector('canvas');
+            if (existingCanvas) canvasContainer.removeChild(existingCanvas);
+            canvasContainer.appendChild(renderer.domElement);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0x10b981, 0.8);
+            dirLight.position.set(5, 15, 5);
+            scene.add(dirLight);
+
+            // Checkered Road Segments (curves dynamically!)
+            // We use 25 segments, each covering 40m
+            for(let i = 0; i < 25; i++) {
+                const segGeo = new THREE.PlaneGeometry(24, 42); // 42 is slightly overlapping to hide seams
+                const segMat = new THREE.MeshStandardMaterial({ 
+                    color: i % 2 === 0 ? 0x0f172a : 0x111e35, // light/dark checkered road
+                    roughness: 0.82,
+                    metalness: 0.15
+                });
+                const seg = new THREE.Mesh(segGeo, segMat);
+                seg.rotation.x = -Math.PI / 2;
+                seg.userData = { relativeZ: -i * 40 };
+                scene.add(seg);
+            }
+
+            // Neon Roadside Poles
+            for(let i = 0; i > -1000; i -= 40) {
+                createNeonPole(-12.5, i, 0x10b981);
+                createNeonPole(12.5, i, 0x10b981);
+            }
+
+            // Create Player Car (Composite Mesh)
+            playerCar = create3DCar(0x10b981);
+            playerCar.position.set(0, 0.5, 0);
+            scene.add(playerCar);
+
+            // Initial obstacle spawns
+            obstacles = [];
+            for(let i = 1; i <= 5; i++) {
+                spawnObstacle(-100 - i * 80);
+            }
+        }
+
+        function createNeonPole(x, z, colorHex) {
+            const poleGeo = new THREE.CylinderGeometry(0.15, 0.15, 6, 8);
+            const poleMat = new THREE.MeshBasicMaterial({ color: colorHex });
+            const pole = new THREE.Mesh(poleGeo, poleMat);
+            pole.position.set(x, 3, z);
+            pole.userData = { relativeZ: z, xOffset: x };
+            scene.add(pole);
+        }
+
+        function create3DCar(colorHex) {
+            const carGroup = new THREE.Group();
+
+            // Wheels
+            const wheelGeo = new THREE.CylinderGeometry(0.45, 0.45, 0.4, 16);
+            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111827 });
+            
+            const w1 = new THREE.Mesh(wheelGeo, wheelMat);
+            w1.rotation.z = Math.PI / 2;
+            w1.position.set(-1.1, 0, 1.2);
+            carGroup.add(w1);
+
+            const w2 = new THREE.Mesh(wheelGeo, wheelMat);
+            w2.rotation.z = Math.PI / 2;
+            w2.position.set(1.1, 0, 1.2);
+            carGroup.add(w2);
+
+            const w3 = new THREE.Mesh(wheelGeo, wheelMat);
+            w3.rotation.z = Math.PI / 2;
+            w3.position.set(-1.1, 0, -1.2);
+            carGroup.add(w3);
+
+            const w4 = new THREE.Mesh(wheelGeo, wheelMat);
+            w4.rotation.z = Math.PI / 2;
+            w4.position.set(1.1, 0, -1.2);
+            carGroup.add(w4);
+
+            // Car Lower Body (Sleek aerodynamic wedge)
+            const bodyGeo = new THREE.BoxGeometry(2, 0.6, 3.8);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.1, metalness: 0.8 });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = 0.4;
+            carGroup.add(body);
+
+            // Cabin (Glass cock-pit look)
+            const cabinGeo = new THREE.BoxGeometry(1.5, 0.5, 1.8);
+            const cabinMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0, metalness: 1 });
+            const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+            cabin.position.set(0, 0.9, -0.2);
+            carGroup.add(cabin);
+
+            // Spoilers and headlights
+            const wingGeo = new THREE.BoxGeometry(2.2, 0.1, 0.4);
+            const wing = new THREE.Mesh(wingGeo, bodyMat);
+            wing.position.set(0, 0.9, 1.8);
+            carGroup.add(wing);
+
+            return carGroup;
+        }
+
+        function spawnObstacle(zPos) {
+            const lane = Math.floor(Math.random() * 3) - 1; // -1, 0, 1
+            const obstacleColors = [0xef4444, 0xf59e0b, 0x3b82f6];
+            const randColor = obstacleColors[Math.floor(Math.random() * obstacleColors.length)];
+
+            // Obstacle box representing generic traffic block
+            const obsGeo = new THREE.BoxGeometry(2.1, 1.2, 2.5);
+            const obsMat = new THREE.MeshStandardMaterial({ 
+                color: randColor,
+                roughness: 0.3,
+                emissive: randColor,
+                emissiveIntensity: 0.2
+            });
+            const obs = new THREE.Mesh(obsGeo, obsMat);
+            obs.position.set(lane * 6, 0.6, zPos);
+            obs.userData = { relativeZ: zPos, lane: lane };
+            scene.add(obs);
+            obstacles.push(obs);
+        }
+
+        function restartGame() {
+            speed = 0;
+            distance = 0;
+            lateralPos = 0;
+            initScene();
+            initAudio();
+            gameActive = true;
+            overlay.style.display = 'none';
+        }
+
+        function handleInput(delta) {
+            // Accelerate
+            if (keyState['ArrowUp'] || keyState['w'] || keyState['W']) {
+                speed = Math.min(speed + 54 * delta, maxSpeed);
+            } else if (keyState['ArrowDown'] || keyState['s'] || keyState['S'] || keyState['brakeActive']) {
+                // Brake
+                speed = Math.max(speed - 90 * delta, 0);
+            } else {
+                // Friction
+                speed = Math.max(speed - 22 * delta, 0);
+            }
+
+            // Lateral steering
+            if (keyState['ArrowLeft'] || keyState['a'] || keyState['A'] || keyState['leftActive']) {
+                lateralPos = Math.max(lateralPos - 13.5 * delta, -11.5);
+            }
+            if (keyState['ArrowRight'] || keyState['d'] || keyState['D'] || keyState['rightActive']) {
+                lateralPos = Math.min(lateralPos + 13.5 * delta, 11.5);
+            }
+        }
+
+        function checkCollisions() {
+            // Check bounding collisions with obstacles
+            for(let obs of obstacles) {
+                // If close in depth
+                if (Math.abs(obs.position.z - playerCar.position.z) < 2.5) {
+                    if (Math.abs(obs.position.x - playerCar.position.x) < 2.1) {
+                        endGame("COLLIDED WITH OBSTACLE");
+                        return;
+                    }
+                }
+            }
+
+            // Collide with roadside poles if player goes too far off-road
+            if (Math.abs(lateralPos) > 12.0) {
+                endGame("OFF-ROAD BARRIER CRASH");
+            }
+        }
+
+        function endGame(reason) {
+            gameActive = false;
+            stopAudio();
+            overlayTitle.textContent = reason || "CRASH DETECTED";
+            overlaySub.textContent = `You survived ${Math.floor(distance)} meters before total structural impact. Watch out for curves!`;
+            startBtn.textContent = "RE-IGNITION";
+            overlay.style.display = 'flex';
+        }
+
+        function updateScene(delta) {
+            if (!gameActive) return;
+
+            // Travel speed delta calculations
+            const zSpeed = (speed * delta) / 3.6;
+            const pastCurveCenter = getRoadCurveX(distance);
+            distance += zSpeed;
+            const currentCurveCenter = getRoadCurveX(distance);
+
+            // Centrifugal drag rate of curve change pushes you out!
+            const curveChange = currentCurveCenter - pastCurveCenter;
+            lateralPos -= curveChange * (0.22 + (speed / maxSpeed) * 0.75);
+
+            // Update player car position
+            playerCar.position.x = currentCurveCenter + lateralPos;
+            playerCar.rotation.z = -curveChange * 0.35 - (keyState['ArrowLeft'] || keyState['leftActive'] ? -0.06 : (keyState['ArrowRight'] || keyState['rightActive'] ? 0.06 : 0));
+
+            // Off-road slow friction warning
+            if (Math.abs(lateralPos) > 9.8) {
+                speed = Math.max(speed - 75 * delta, 20); // Grass friction slows your engine
+                playerCar.position.y = 0.45 + Math.sin(Date.now() * 0.05) * 0.04;
+            } else {
+                playerCar.position.y = 0.45;
+            }
+
+            // Align all relative elements (road checker meshes, poles, and barriers) to curve
+            scene.traverse(child => {
+                if (child.userData && child.userData.relativeZ !== undefined) {
+                    child.userData.relativeZ += zSpeed;
+
+                    // Recycling
+                    if (child.userData.relativeZ > 15) {
+                        if (obstacles.includes(child)) {
+                            child.userData.relativeZ = -450 - Math.random() * 150;
+                            child.userData.lane = Math.floor(Math.random() * 3) - 1;
+                        } else {
+                            child.userData.relativeZ -= 1000;
+                        }
+                    }
+
+                    // Apply coordinate projection
+                    const z = child.userData.relativeZ;
+                    const curveX = getRoadCurveX(distance + z);
+                    child.position.z = z;
+
+                    if (child.userData.xOffset !== undefined) {
+                        child.position.x = curveX + child.userData.xOffset;
+                    } else if (child.userData.lane !== undefined) {
+                        child.position.x = curveX + child.userData.lane * 6.2;
+                    } else {
+                        // Road check segment
+                        child.position.x = curveX;
+                    }
+                }
+            });
+
+            // Camera bends elegantly along upcoming curvature
+            const lookAheadX = getRoadCurveX(distance - 35);
+            camera.position.x = playerCar.position.x * 0.82;
+            camera.lookAt(lookAheadX, 1.8, -12);
+
+            // Sync HUD
+            speedVal.textContent = Math.round(speed);
+            distVal.textContent = Math.round(distance);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = Math.min(clock.getDelta(), 0.1); // Clamp extreme frames
+
+            if (gameActive) {
+                handleInput(delta);
+                updateScene(delta);
+                checkCollisions();
+                updateAudioPitch();
+            }
+
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
+        }
+
+        // Host Window Resizes
+        window.addEventListener('resize', () => {
+            if (camera && renderer) {
+                camera.aspect = canvasContainer.clientWidth / canvasContainer.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+            }
+        });
+
+        // Key Listeners
+        window.addEventListener('keydown', e => {
+            keyState[e.key] = true;
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                e.preventDefault();
+            }
+        });
+        window.addEventListener('keyup', e => {
+            keyState[e.key] = false;
+        });
+
+        // Mobile Controls hooks
+        const lBtn = document.getElementById('btn-left');
+        const rBtn = document.getElementById('btn-right');
+        const bBtn = document.getElementById('btn-brake');
+
+        lBtn.addEventListener('touchstart', e => { e.preventDefault(); keyState['leftActive'] = true; });
+        lBtn.addEventListener('touchend', () => keyState['leftActive'] = false);
+        rBtn.addEventListener('touchstart', e => { e.preventDefault(); keyState['rightActive'] = true; });
+        rBtn.addEventListener('touchend', () => keyState['rightActive'] = false);
+        
+        bBtn.addEventListener('touchstart', e => { e.preventDefault(); keyState['brakeActive'] = true; });
+        bBtn.addEventListener('touchend', () => keyState['brakeActive'] = false);
+        bBtn.addEventListener('mousedown', () => keyState['brakeActive'] = true);
+        bBtn.addEventListener('mouseup', () => keyState['brakeActive'] = false);
+
+        startBtn.addEventListener('click', () => {
+            restartGame();
+        });
+
+        // Initialize frame
+        initScene();
+        animate();
+    </script>
+</body>
+</html>
