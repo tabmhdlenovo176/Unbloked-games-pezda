@@ -115,18 +115,5 @@
     "plays": "18.3K",
     "accentColor": "#06b6d4",
     "difficulty": "Medium to Hard"
-  },
-  {
-    "id": "apps_script_arcade",
-    "title": "Apps Script Retro Arena",
-    "description": "Unlock a high-energy retro arcade workspace compiled on a custom cloud script engine. Run secure local code calculations, perfect your layout inputs, and score higher!",
-    "category": "Retro Arcade",
-    "iframeUrl": "https://script.google.com/macros/s/AKfycbxuSWh2XTYFZSscENDakbdpcIJ1SoqzNmRYluJlgZDZpiEIDPGfzvE_PIVBis9Aa62keA/exec",
-    "thumbnail": "/games/apps-script/thumbnail.jpg",
-    "controls": "Navigate menus with mouse or touch, and use standard keyboard or on-screen inputs.",
-    "rating": "4.9",
-    "plays": "25.4K",
-    "accentColor": "#10b981",
-    "difficulty": "Easy to Hard"
   }
 ]

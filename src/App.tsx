@@ -31,6 +31,8 @@ interface Game {
   rating: string;
   plays: string;
   difficulty: "Easy" | "Medium" | "Hard" | "Very Hard" | "Scales Up" | string;
+  customAllow?: string;
+  customSandbox?: string;
 }
 
 // Seamless static fallback array matching games.json to ensure 100% resilient rendering on load
@@ -151,19 +153,6 @@ const BACKUP_GAMES: Game[] = [
     "plays": "18.3K",
     "accentColor": "#06b6d4",
     "difficulty": "Medium to Hard"
-  },
-  {
-    "id": "apps_script_arcade",
-    "title": "Apps Script Retro Arena",
-    "description": "Unlock a high-energy retro arcade workspace compiled on a custom cloud script engine. Run secure local code calculations, perfect your layout inputs, and score higher!",
-    "category": "Retro Arcade",
-    "iframeUrl": "https://script.google.com/macros/s/AKfycbxuSWh2XTYFZSscENDakbdpcIJ1SoqzNmRYluJlgZDZpiEIDPGfzvE_PIVBis9Aa62keA/exec",
-    "thumbnail": "/games/apps-script/thumbnail.jpg",
-    "controls": "Navigate menus with mouse or touch, and use standard keyboard or on-screen inputs.",
-    "rating": "4.9",
-    "plays": "25.4K",
-    "accentColor": "#10b981",
-    "difficulty": "Easy to Hard"
   }
 ];
 
@@ -437,10 +426,11 @@ export default function App() {
                   src={activeGame.iframeUrl}
                   title={activeGame.title}
                   className="w-full max-w-full aspect-[4/3] min-h-[420px] rounded-xl border-0 overflow-hidden bg-slate-900 shadow-inner"
-                  sandbox={activeGame.iframeUrl.startsWith('http') 
+                  sandbox={activeGame.customSandbox || (activeGame.iframeUrl.startsWith('http') 
                     ? "allow-scripts allow-popups allow-forms allow-same-origin allow-popups-to-escape-sandbox allow-downloads allow-modals allow-storage-access-by-user-activation" 
                     : "allow-scripts allow-same-origin allow-modals allow-popups"
-                  }
+                  )}
+                  allow={activeGame.customAllow || undefined}
                   onLoad={() => setIframeLoaded(true)}
                   id="game-iframe-player"
                 />
@@ -709,6 +699,31 @@ export default function App() {
                       </div>
                     );
                   })}
+
+                  {/* COMING SOON CARD */}
+                  <div 
+                    className="flex flex-col justify-between bg-slate-900/40 border border-dashed border-slate-800/80 hover:border-emerald-500/30 rounded-xl overflow-hidden p-6 text-center select-none group min-h-[320px] transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/5"
+                    id="coming-soon-card"
+                  >
+                    <div className="flex-1 flex flex-col items-center justify-center gap-4">
+                      <div className="relative flex items-center justify-center w-14 h-14 bg-slate-950 border border-slate-800 rounded-lg group-hover:border-emerald-500/40 group-hover:scale-105 transition-all duration-500">
+                        <Sparkles className="w-6 h-6 text-slate-600 group-hover:text-emerald-400 transition-colors duration-300" />
+                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-slate-950 animate-pulse" />
+                      </div>
+                      <div>
+                        <h3 className="font-mono font-bold text-xs sm:text-sm text-slate-300 group-hover:text-emerald-400 transition-colors uppercase tracking-widest">
+                          More Games Coming
+                        </h3>
+                        <p className="text-xs text-slate-500 leading-relaxed max-w-[200px] mx-auto mt-2 font-mono">
+                          Expanding local sandbox directories. Submit requests or check back soon!
+                        </p>
+                      </div>
+                    </div>
+                    <div className="border-t border-slate-800/40 pt-3 flex items-center justify-center font-mono text-[9px] text-slate-600 tracking-wider">
+                      <span>STATUS: RECALIBRATING PORTAL</span>
+                    </div>
+                  </div>
+
                 </div>
               )}
 
