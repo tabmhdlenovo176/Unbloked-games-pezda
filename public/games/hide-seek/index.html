@@ -211,14 +211,14 @@
         <!-- HEADER / HUD PANEL -->
         <div class="header">
             <div class="header-top">
-                <h1>NEON TRACKER 3D</h1>
+                <h1>SATELLITE TRACKER 3D</h1>
                 <div style="font-size: 11px; color: #22d3ee; font-weight: bold;">
                     LEVEL: <span id="levelVal">1</span>
                 </div>
             </div>
             <div class="hud">
                 <div>SECTOR TIME: <span id="timerVal" class="highlight">45s</span></div>
-                <div>HIDERS TAGGED: <span id="hidersVal" style="color:#10b981;">0 / 5</span></div>
+                <div>STATUS: <span id="hidersVal" style="color:#10b981;">0 / 5</span></div>
                 <div>SCORE: <span id="scoreVal" style="color: #facc15;">0</span></div>
             </div>
         </div>
@@ -227,17 +227,25 @@
         <div id="canvasContainer">
             <!-- Startup / Game Over panel -->
             <div id="startOverlay" class="overlay">
-                <h2 id="overlayTitle">NEON HIDE & SEEK</h2>
+                <h2 id="overlayTitle">SATELLITE HIDE & SEEK</h2>
                 <p id="overlaySub">
-                    Identify and tag <strong style="color: #22d3ee;">5 rogue hiders</strong> camouflaged 
-                    behind cybernetic structures. Use your <strong>PROXIMITY SONAR</strong> to locate target signals! 
-                    Get within range of hiders to reveal and tag them.
+                    Initialize scan sectors. Play as a <strong>Tracker</strong> to hunt down cloaked anomalies, or play as a <strong>Hider</strong> to evade the searchlight scanner drone!
                 </p>
+                <div style="margin-bottom: 20px; display: flex; gap: 12px; justify-content: center; width: 100%;">
+                    <label style="cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 11px; background: rgba(34, 211, 238, 0.12); border: 1px solid #22d3ee; padding: 6px 12px; border-radius: 4px; color: #22d3ee; font-family: monospace;">
+                        <input type="radio" name="gameMode" value="seeker" checked style="accent-color: #22d3ee;">
+                        TRACKER MODE
+                    </label>
+                    <label style="cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 11px; background: rgba(244, 63, 94, 0.12); border: 1px solid #f43f5e; padding: 6px 12px; border-radius: 4px; color: #f43f5e; font-family: monospace;">
+                        <input type="radio" name="gameMode" value="hider" style="accent-color: #f43f5e;">
+                        SURVIVAL MODE
+                    </label>
+                </div>
                 <div class="stats-grid">
                     <div>TOTAL CAPTURES: <span id="statCaptures">0</span></div>
                     <div>SECTOR CLEARED: <span id="statCleared">0</span></div>
                 </div>
-                <button id="startBtn" class="btn">INITIALIZE CORE SCAN</button>
+                <button id="startBtn" class="btn">INITIALIZE CORE MISSION</button>
             </div>
 
             <!-- Ping Action Button -->
@@ -347,6 +355,23 @@
 
         let totalSectorsCleared = 0;
         let totalCapturesCount = 0;
+
+        let gameMode = 'seeker'; // 'seeker' or 'hider'
+        let hunterGroup = null;
+        let hunterPatrolTarget = new THREE.Vector3();
+        let hunterState = 'patrol'; // 'patrol', 'chase', 'investigate'
+        let hunterInvestigateTimer = 0;
+        let hunterSpeed = 6.0;
+        let detectionLevel = 0;
+        let alertBlinkTimer = 0;
+        const patrolPoints = [
+            new THREE.Vector3(-15, 0.9, -15),
+            new THREE.Vector3(15, 0.9, -15),
+            new THREE.Vector3(-15, 0.9, 15),
+            new THREE.Vector3(15, 0.9, 15),
+            new THREE.Vector3(0, 0.9, -8),
+            new THREE.Vector3(0, 0.9, 8)
+        ];
 
         let keyState = {};
         const arenaSize = 24; // boundary bounds
@@ -461,17 +486,89 @@
                 { x: 6, z: 1, sizeX: 2, sizeZ: 4, height: 3.0 }
             ];
 
-            structurePositions.forEach(pos => {
+            structurePositions.forEach((pos, idx) => {
+                // Color choices for buildings: dark realistic concrete tones
+                const buildingColors = [0x27272a, 0x1f2937, 0x334155, 0x1e1b4b, 0x12131a];
+                const colorSelected = buildingColors[idx % buildingColors.length];
+                
                 const geo = new THREE.BoxGeometry(pos.sizeX, pos.height, pos.sizeZ);
                 const mat = new THREE.MeshStandardMaterial({ 
-                    color: 0x111827, 
-                    roughness: 0.7,
-                    metalness: 0.3 
+                    color: colorSelected, 
+                    roughness: 0.8,
+                    metalness: 0.2 
                 });
                 const box = new THREE.Mesh(geo, mat);
                 box.position.set(pos.x, pos.height / 2, pos.z);
                 scene.add(box);
                 obstacles.push(box);
+
+                // Add glass window fixtures on the building facades for great realism!
+                const numFloors = Math.floor(pos.height / 0.82);
+                const winMat = new THREE.MeshBasicMaterial({ color: 0xfffeb3 }); // warm office window glow
+                const darkWinMat = new THREE.MeshBasicMaterial({ color: 0x111317 }); // unlit office hours
+                
+                for(let floor = 0; floor < numFloors; floor++) {
+                    const y = -pos.height / 2 + 0.4 + floor * 0.8;
+                    // North & South windows (X-axis distributed)
+                    for(let wx = -pos.sizeX/2 + 0.5; wx <= pos.sizeX/2 - 0.5; wx += 0.9) {
+                        const lit = (Math.sin(floor * 3 + wx * 10 + idx) > -0.2); // semi-random lit status
+                        const curWinMat = lit ? winMat : darkWinMat;
+                        
+                        // North
+                        const winN = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.35, 0.05), curWinMat);
+                        winN.position.set(wx, y, pos.sizeZ / 2 + 0.015);
+                        box.add(winN);
+                        
+                        // South
+                        const winS = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.35, 0.05), curWinMat);
+                        winS.position.set(wx, y, -pos.sizeZ / 2 - 0.015);
+                        box.add(winS);
+                    }
+                    // East & West windows (Z-axis distributed)
+                    for(let wz = -pos.sizeZ/2 + 0.5; wz <= pos.sizeZ/2 - 0.5; wz += 0.9) {
+                        const lit = (Math.cos(floor * 5 + wz * 12 + idx) > -0.3);
+                        const curWinMat = lit ? winMat : darkWinMat;
+                        
+                        // East
+                        const winE = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.35, 0.24), curWinMat);
+                        winE.position.set(pos.sizeX / 2 + 0.015, y, wz);
+                        box.add(winE);
+                        
+                        // West
+                        const winW = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.35, 0.24), curWinMat);
+                        winW.position.set(-pos.sizeX / 2 - 0.015, y, wz);
+                        box.add(winW);
+                    }
+                }
+
+                // Add rooftop elevator/mechanical penthouse
+                const penthouseGeo = new THREE.BoxGeometry(pos.sizeX * 0.55, 0.5, pos.sizeZ * 0.55);
+                const penthouseMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.9 });
+                const pent = new THREE.Mesh(penthouseGeo, penthouseMat);
+                pent.position.set(0, pos.height / 2 + 0.25, 0);
+                box.add(pent);
+
+                if (pos.height > 3.6) {
+                    // Small architectural utilities (vent ducts or water tanks)
+                    const ventGeo = new THREE.BoxGeometry(pos.sizeX * 0.2, 0.26, pos.sizeZ * 0.2);
+                    const vent = new THREE.Mesh(ventGeo, penthouseMat);
+                    vent.position.set(pos.sizeX * 0.2, pos.height / 2 + 0.13, -pos.sizeZ * 0.2);
+                    box.add(vent);
+
+                    // Skyscraper radio antenna mast with active security warning beacon
+                    const antennaGeo = new THREE.CylinderGeometry(0.03, 0.05, 1.2, 4);
+                    const antennaMat = new THREE.MeshStandardMaterial({ color: 0x4b5563, roughness: 0.5 });
+                    const antenna = new THREE.Mesh(antennaGeo, antennaMat);
+                    antenna.position.set(-pos.sizeX * 0.2, pos.height / 2 + 0.6, pos.sizeZ * 0.2);
+                    box.add(antenna);
+
+                    const beacon = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.08, 6, 6),
+                        new THREE.MeshBasicMaterial({ color: 0xef4444 })
+                    );
+                    beacon.position.y = 0.6;
+                    antenna.add(beacon);
+                }
 
                 // Add stylized cyan glowing corner markers representing terminal consoles
                 const trimGeo = new THREE.BoxGeometry(0.12, pos.height, 0.12);
@@ -488,67 +585,153 @@
                 obstacles.push(trim2);
             });
 
-            // Spawn hiders in close proximity to structures/obstacles (behind columns)
-            const hiderColors = [0xec4899, 0x10b981, 0xf59e0b, 0x8b5cf6, 0xeab308];
-            const naming = ["Delta-9", "Theta-X", "Echo-V", "Sigma-3", "Aero-4"];
+            if (gameMode === 'seeker') {
+                // Spawn hiders in close proximity to structures/obstacles (behind columns)
+                const hiderColors = [0xec4899, 0x10b981, 0xf59e0b, 0x8b5cf6, 0xeab308];
+                const naming = ["Delta-9", "Theta-X", "Echo-V", "Sigma-3", "Aero-4"];
 
-            for (let i = 0; i < totalLevelHiders; i++) {
-                // Find a shelter spot near one of the structures, offset back
-                const spot = structurePositions[(i * 2) % structurePositions.length];
-                
-                // Offset spot slightly: north/south/east/west
-                const offsets = [
-                    { x: -posOffset(spot.sizeX), z: 0 },
-                    { x: posOffset(spot.sizeX), z: 0 },
-                    { x: 0, z: -posOffset(spot.sizeZ) },
-                    { x: 0, z: posOffset(spot.sizeZ) }
-                ];
-                const choice = offsets[i % offsets.length];
+                for (let i = 0; i < totalLevelHiders; i++) {
+                    // Find a shelter spot near one of the structures, offset back
+                    const spot = structurePositions[(i * 2) % structurePositions.length];
+                    
+                    // Offset spot slightly: north/south/east/west
+                    const offsets = [
+                        { x: -posOffset(spot.sizeX), z: 0 },
+                        { x: posOffset(spot.sizeX), z: 0 },
+                        { x: 0, z: -posOffset(spot.sizeZ) },
+                        { x: 0, z: posOffset(spot.sizeZ) }
+                    ];
+                    const choice = offsets[i % offsets.length];
 
-                let xFinal = spot.x + choice.x;
-                let zFinal = spot.z + choice.z;
+                    let xFinal = spot.x + choice.x;
+                    let zFinal = spot.z + choice.z;
 
-                // Keep inside fence bounds
-                xFinal = Math.max(Math.min(xFinal, arenaSize - 2.5), -arenaSize + 2.5);
-                zFinal = Math.max(Math.min(zFinal, arenaSize - 2.5), -arenaSize + 2.5);
+                    // Keep inside fence bounds
+                    xFinal = Math.max(Math.min(xFinal, arenaSize - 2.5), -arenaSize + 2.5);
+                    zFinal = Math.max(Math.min(zFinal, arenaSize - 2.5), -arenaSize + 2.5);
 
-                // Build Hider model group
-                // Hiders are small cylinder cores with an outer spinning neon crystal
-                const hiderGroup = new THREE.Group();
+                    // Build Hider model group
+                    // Hiders are small cylinder cores with an outer spinning neon crystal
+                    const hiderGroup = new THREE.Group();
 
-                // Core capsule
-                const capGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.9, 8);
-                const capMat = new THREE.MeshStandardMaterial({ 
-                    color: 0x1e293b, 
-                    roughness: 0.1 
-                });
-                const capsule = new THREE.Mesh(capGeo, capMat);
-                hiderGroup.add(capsule);
+                    // Core capsule
+                    const capGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.9, 8);
+                    const capMat = new THREE.MeshStandardMaterial({ 
+                        color: 0x1e293b, 
+                        roughness: 0.1 
+                    });
+                    const capsule = new THREE.Mesh(capGeo, capMat);
+                    hiderGroup.add(capsule);
 
-                // Top jewel (revealed in gorgeous glowing light color only when tagged/scanned close!)
-                const crystalGeo = new THREE.OctahedronGeometry(0.5);
-                const crystalMat = new THREE.MeshBasicMaterial({ 
-                    color: hiderColors[i],
-                    transparent: true,
-                    opacity: 0.15 // mostly transparent or cloaked until seeker gets extremely close!
-                });
-                const crystal = new THREE.Mesh(crystalGeo, crystalMat);
-                crystal.position.y = 0.65;
-                crystal.name = "stealthCore";
-                hiderGroup.add(crystal);
+                    // Top jewel (revealed in gorgeous glowing light color only when tagged/scanned close!)
+                    const crystalGeo = new THREE.OctahedronGeometry(0.5);
+                    const crystalMat = new THREE.MeshBasicMaterial({ 
+                        color: hiderColors[i],
+                        transparent: true,
+                        opacity: 0.15 // mostly transparent or cloaked until seeker gets extremely close!
+                    });
+                    const crystal = new THREE.Mesh(crystalGeo, crystalMat);
+                    crystal.position.y = 0.65;
+                    crystal.name = "stealthCore";
+                    hiderGroup.add(crystal);
 
-                hiderGroup.position.set(xFinal, 0.45, zFinal);
-                scene.add(hiderGroup);
+                    hiderGroup.position.set(xFinal, 0.45, zFinal);
+                    scene.add(hiderGroup);
 
-                hiders.push({
-                    name: naming[i],
-                    mesh: hiderGroup,
-                    colorHex: hiderColors[i],
-                    tagged: false,
-                    shelterX: xFinal,
-                    shelterZ: zFinal,
-                    stealthRating: 0.2 + (i * 0.15)
-                });
+                    hiders.push({
+                        name: naming[i],
+                        mesh: hiderGroup,
+                        colorHex: hiderColors[i],
+                        tagged: false,
+                        shelterX: xFinal,
+                        shelterZ: zFinal,
+                        stealthRating: 0.2 + (i * 0.15)
+                    });
+                }
+            } else {
+                // Ensure hiders array is empty since we are the hider now!
+                hiders = [];
+
+                // Remove previous hunter if exists
+                if (hunterGroup) scene.remove(hunterGroup);
+
+                // Set hunter parameters
+                hunterPatrolTarget.copy(patrolPoints[Math.floor(Math.random() * patrolPoints.length)]);
+                hunterState = 'patrol';
+                hunterSpeed = 4.8 + level * 1.2; // becomes faster as level grows
+
+                // Create Hunter Drone model
+                hunterGroup = new THREE.Group();
+
+                const hunterCore = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.55, 12, 12),
+                    new THREE.MeshStandardMaterial({ 
+                        color: 0xf43f5e, 
+                        emissive: 0xf43f5e, 
+                        emissiveIntensity: 0.8,
+                        metalness: 0.8
+                    })
+                );
+                hunterCore.position.y = 1.6;
+                hunterGroup.add(hunterCore);
+
+                // Add 4 quadcopter support arms extending outwards
+                const armMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.9, roughness: 0.1 });
+                for(let angle of [Math.PI/4, 3*Math.PI/4, 5*Math.PI/4, 7*Math.PI/4]) {
+                    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 1.1), armMat);
+                    arm.position.set(Math.sin(angle) * 0.45, 1.6, Math.cos(angle) * 0.45);
+                    arm.rotation.y = angle;
+                    hunterGroup.add(arm);
+
+                    // Rotor cap
+                    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.12, 6), armMat);
+                    cap.position.set(Math.sin(angle) * 0.9, 1.65, Math.cos(angle) * 0.9);
+                    hunterGroup.add(cap);
+
+                    // Rotor blades (spin in update)
+                    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.01, 0.06), new THREE.MeshStandardMaterial({ color: 0x090d16 }));
+                    blade.name = "rotor_blade_" + angle;
+                    blade.position.set(Math.sin(angle) * 0.9, 1.7, Math.cos(angle) * 0.9);
+                    hunterGroup.add(blade);
+                }
+
+                // Downward camera lens turret
+                const lens = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.24, 0.24, 0.35, 8),
+                    new THREE.MeshStandardMaterial({ color: 0x090d16, metalness: 0.9 })
+                );
+                lens.position.set(0, 1.25, 0);
+                hunterGroup.add(lens);
+
+                // Scanning sensor perimeter ring
+                const hunterRing = new THREE.Mesh(
+                    new THREE.RingGeometry(1.2, 1.4, 12),
+                    new THREE.MeshBasicMaterial({ color: 0xf43f5e, side: THREE.DoubleSide })
+                );
+                hunterRing.rotation.x = Math.PI / 2;
+                hunterRing.position.y = 1.35;
+                hunterGroup.add(hunterRing);
+
+                // Red dynamic light search zone beam cone
+                const beamGeo = new THREE.ConeGeometry(2.8, 1.55, 12, 1, true);
+                const beamMat = new THREE.MeshBasicMaterial({ color: 0xf43f5e, transparent: true, opacity: 0.15, side: THREE.DoubleSide });
+                const beam = new THREE.Mesh(beamGeo, beamMat);
+                beam.position.y = 0.8;
+                beam.rotation.x = Math.PI; // flip downwards
+                hunterGroup.add(beam);
+
+                // Scanning floor ring (visual spotlight projector)
+                const floorRing = new THREE.Mesh(
+                    new THREE.RingGeometry(2.5, 2.7, 16),
+                    new THREE.MeshBasicMaterial({ color: 0xf43f5e, side: THREE.DoubleSide, transparent: true, opacity: 0.4 })
+                );
+                floorRing.rotation.x = Math.PI / 2;
+                floorRing.position.y = 0.04;
+                hunterGroup.add(floorRing);
+
+                // Start far corner
+                hunterGroup.position.set(-16, 0.9, -16);
+                scene.add(hunterGroup);
             }
         }
 
@@ -669,19 +852,36 @@
 
         function updateHUD() {
             timerVal.textContent = Math.ceil(timeLeft) + "s";
-            hidersVal.textContent = `${hidersTagged} / ${totalLevelHiders}`;
-            scoreVal.textContent = score;
+            if (gameMode === 'hider') {
+                hidersVal.textContent = "DETECTION: " + Math.round(detectionLevel) + "%";
+                if (detectionLevel > 65) {
+                    hidersVal.style.color = "#f43f5e"; // flashing danger
+                } else if (detectionLevel > 20) {
+                    hidersVal.style.color = "#eab308"; // alarmed
+                } else {
+                    hidersVal.style.color = "#10b981"; // safe cloak
+                }
+            } else {
+                hidersVal.style.color = "#10b981";
+                hidersVal.textContent = `${hidersTagged} / ${totalLevelHiders}`;
+            }
+            scoreVal.textContent = Math.round(score);
             levelVal.textContent = level;
         }
 
         function resetGame() {
             initAudio();
 
+            // Read the radio selection
+            const checkedRadio = document.querySelector('input[name="gameMode"]:checked');
+            gameMode = checkedRadio ? checkedRadio.value : 'seeker';
+
             gameActive = true;
             timeLeft = 45;
             hidersTagged = 0;
             score = 0;
             level = 1;
+            detectionLevel = 0;
 
             totalSectorsCleared = 0;
             totalCapturesCount = 0;
@@ -691,8 +891,13 @@
             prepareArenaStructures();
             updateHUD();
             
-            proximityText.textContent = "STANDBY";
-            proximityText.style.color = "#fbbf24";
+            if (gameMode === 'hider') {
+                proximityText.textContent = "CLOAKED";
+                proximityText.style.color = "#10b981";
+            } else {
+                proximityText.textContent = "STANDBY";
+                proximityText.style.color = "#fbbf24";
+            }
             
             startOverlay.style.display = 'none';
         }
@@ -702,6 +907,7 @@
             totalSectorsCleared++;
             timeLeft = Math.min(timeLeft + 25, 80); // time extension
             hidersTagged = 0;
+            detectionLevel = Math.max(detectionLevel - 30, 0);
 
             seekerMesh.position.set(0, 0.9, 0);
             
@@ -709,30 +915,74 @@
             updateHUD();
 
             triggerPingSound();
-            proximityText.textContent = "ADVANCING";
-            proximityText.style.color = "#10b981";
+            
+            if (gameMode === 'hider') {
+                proximityText.textContent = "SECTOR ESCAPE!";
+                proximityText.style.color = "#10b981";
+            } else {
+                proximityText.textContent = "ADVANCING";
+                proximityText.style.color = "#10b981";
+            }
         }
 
         function endGame(titleText) {
             gameActive = false;
             
             overlayTitle.textContent = titleText;
-            overlaySub.textContent = `Completed Level ${level} in scanner sector, locating arean anomalies! Total Core score achieved: ${score} points!`;
+            if (gameMode === 'hider') {
+                overlaySub.textContent = `Evaded drone for ${level} waves! Final Score achieved: ${Math.round(score)} points!`;
+            } else {
+                overlaySub.textContent = `Completed Level ${level} in scanner sector! Total Core score achieved: ${Math.round(score)} points!`;
+            }
             
             statCaptures.textContent = totalCapturesCount;
             statCleared.textContent = totalSectorsCleared;
 
             const btn = document.getElementById('startBtn');
-            btn.textContent = "RE-BOOT SENSORS";
+            btn.textContent = "RE-BOOT MISSION";
             startOverlay.style.display = 'flex';
         }
 
-        // Collision checkers (Prevents seeker from moving inside columns/obstacles)
-        function checkCollisions(nextX, nextZ) {
-            // Field boundary fencing
+        // Raycast bounding-box line-of-sight blocking check for hiding behind columns
+        function isPlayerHidden(playerPos, hunterPos) {
+            const dx = playerPos.x - hunterPos.x;
+            const dz = playerPos.z - hunterPos.z;
+            const dist = Math.sqrt(dx * dx + dz * dz);
+            
+            if (dist < 1.6) return false; // Too close to hide
+
+            const checkSteps = 12;
+            for (let i = 1; i < checkSteps; i++) {
+                const t = i / checkSteps;
+                const px = hunterPos.x + dx * t;
+                const pz = hunterPos.z + dz * t;
+                
+                // See if vector point overlaps any block's collision box
+                for (let j = 0; j < obstacles.length; j++) {
+                    const obs = obstacles[j];
+                    if (!obs.geometry || obs.geometry.type !== "BoxGeometry") continue;
+                    
+                    const halfX = obs.geometry.parameters.width / 2;
+                    const halfZ = obs.geometry.parameters.depth / 2;
+                    
+                    if (Math.abs(px - obs.position.x) < halfX && Math.abs(pz - obs.position.z) < halfZ) {
+                        return true; // Line of sight is blocked by this structure!
+                    }
+                }
+            }
+            return false;
+        }
+
+        // Collision checkers (Prevents seeker from moving inside columns/obstacles, unless bypassing)
+        function checkCollisions(nextX, nextZ, canBypassObstacles = false) {
+            // Field boundary fencing (always protects outer limits to avoid falling off arena)
             const cushion = 0.85;
             if (Math.abs(nextX) > arenaSize - cushion || Math.abs(nextZ) > arenaSize - cushion) {
                 return true;
+            }
+
+            if (canBypassObstacles) {
+                return false; // Trespass obstacles/walls!
             }
 
             // Pillar box obstacle overlaps
@@ -766,7 +1016,12 @@
                 updateHUD();
 
                 if (timeLeft <= 0) {
-                    endGame("DECOY COOLDOWN REACHED!");
+                    if (gameMode === 'hider') {
+                        // Survival victory! Triggering next level extends time and adds difficulty.
+                        triggerNextLevel();
+                    } else {
+                        endGame("DECOY COOLDOWN REACHED!");
+                    }
                     return;
                 }
 
@@ -790,10 +1045,10 @@
                     const nextX = seekerMesh.position.x + dirX * moveDistance;
                     const nextY = seekerMesh.position.z + dirZ * moveDistance;
 
-                    if (!checkCollisions(nextX, seekerMesh.position.z)) {
+                    if (!checkCollisions(nextX, seekerMesh.position.z, gameMode === 'seeker')) {
                         seekerMesh.position.x = nextX;
                     }
-                    if (!checkCollisions(seekerMesh.position.x, nextY)) {
+                    if (!checkCollisions(seekerMesh.position.x, nextY, gameMode === 'seeker')) {
                         seekerMesh.position.z = nextY;
                     }
 
@@ -808,59 +1063,164 @@
                 camera.position.z += (targetCameraZ - camera.position.z) * 0.08;
                 camera.lookAt(seekerMesh.position.x, 0.4, seekerMesh.position.z);
 
-                // Check Proximity thresholds to hiders to reveal them!
-                hiders.forEach(h => {
-                    if (!h.tagged) {
-                        const distToSeeker = seekerMesh.position.distanceTo(h.mesh.position);
-                        
-                        // Spin cloaked crystal element
-                        h.mesh.rotation.y += 2.0 * delta;
+                if (gameMode === 'seeker') {
+                    // Check Proximity thresholds to hiders to reveal them!
+                    hiders.forEach(h => {
+                        if (!h.tagged) {
+                            const distToSeeker = seekerMesh.position.distanceTo(h.mesh.position);
+                            
+                            // Spin cloaked crystal element
+                            h.mesh.rotation.y += 2.0 * delta;
 
-                        // Reveal when search cone is close
-                        const secretCore = h.mesh.getObjectByName("stealthCore");
-                        if (distToSeeker < 5.0) {
-                            // Turn crystal translucent as seeker gets closer
-                            if (secretCore) {
-                                secretCore.material.opacity = 1.0 - (distToSeeker / 5.0);
+                            // Reveal when search cone is close
+                            const secretCore = h.mesh.getObjectByName("stealthCore");
+                            if (distToSeeker < 5.0) {
+                                // Turn crystal translucent as seeker gets closer
+                                if (secretCore) {
+                                    secretCore.material.opacity = 1.0 - (distToSeeker / 5.0);
+                                }
+                            } else {
+                                if (secretCore) secretCore.material.opacity = 0.15;
                             }
-                        } else {
-                            if (secretCore) secretCore.material.opacity = 0.15;
-                        }
 
-                        // Close range overlap TAGS them
-                        if (distToSeeker < 1.7) {
-                            h.tagged = true;
-                            hidersTagged++;
-                            totalCapturesCount++;
-                            score += 200 * level;
-                            timeLeft = Math.min(timeLeft + 11, 80);
+                            // Close range overlap TAGS them
+                            if (distToSeeker < 1.7) {
+                                h.tagged = true;
+                                hidersTagged++;
+                                totalCapturesCount++;
+                                score += 200 * level;
+                                timeLeft = Math.min(timeLeft + 11, 80);
 
-                            triggerHiderTagSound();
+                                triggerHiderTagSound();
 
-                            // Spin tag graphic reaction: slide upwards and vanish
-                            let riseProgress = 0;
-                            function tagVanishAnimation() {
-                                if (!scene) return;
-                                riseProgress += 0.06;
-                                h.mesh.position.y += 0.18;
-                                h.mesh.scale.setScalar(1.0 - riseProgress);
+                                // Spin tag reaction: slide upwards and vanish
+                                let riseProgress = 0;
+                                function tagVanishAnimation() {
+                                    if (!scene) return;
+                                    riseProgress += 0.06;
+                                    h.mesh.position.y += 0.18;
+                                    h.mesh.scale.setScalar(1.0 - riseProgress);
 
-                                if (riseProgress < 1.0) {
-                                    requestAnimationFrame(tagVanishAnimation);
-                                } else {
-                                    scene.remove(h.mesh);
+                                    if (riseProgress < 1.0) {
+                                        requestAnimationFrame(tagVanishAnimation);
+                                    } else {
+                                        scene.remove(h.mesh);
+                                    }
+                                }
+                                tagVanishAnimation();
+                                updateHUD();
+
+                                // Win detection for stage clears
+                                if (hidersTagged >= totalLevelHiders) {
+                                    triggerNextLevel();
                                 }
                             }
-                            tagVanishAnimation();
-                            updateHUD();
+                        }
+                    });
+                } else {
+                    // Hider/Survival mode active - Drone chases player!
+                    score += delta * 15.0 * level;
 
-                            // Win detection for stage clears
-                            if (hidersTagged >= totalLevelHiders) {
-                                triggerNextLevel();
+                    if (hunterGroup) {
+                        // Gently spin drone frame
+                        hunterGroup.rotation.y += 1.8 * delta;
+
+                        // Spin individual rotor blades super fast!
+                        hunterGroup.children.forEach(c => {
+                            if (c.name && c.name.startsWith("rotor_blade_")) {
+                                c.rotation.y += 38.0 * delta;
+                            }
+                        });
+
+                        // Check line of sight
+                        const playerPos = seekerMesh.position;
+                        const hunterPos = hunterGroup.position;
+                        const distToPlayer = playerPos.distanceTo(hunterPos);
+
+                        const blocked = isPlayerHidden(playerPos, hunterPos);
+                        const isPlayerSpotted = !blocked && (distToPlayer < 12.0);
+
+                        if (isPlayerSpotted) {
+                            // Drone targets player! Chase phase
+                            if (hunterState !== 'chase') {
+                                hunterState = 'chase';
+                                playSynthTone(220, 0.25, 'sawtooth'); // Alert warning beep!
+                            }
+                            
+                            proximityText.textContent = "DETECTED";
+                            proximityText.style.color = "#f43f5e";
+
+                            // Increase alarm level rapidly inside the search cone (faster each level)
+                            detectionLevel = Math.min(detectionLevel + delta * (28 + level * 7), 100);
+
+                            // Blink drone core
+                            alertBlinkTimer += delta * 12;
+                            const hCore = hunterGroup.children[0];
+                            if (hCore && hCore.material) {
+                                hCore.material.emissiveIntensity = Math.sin(alertBlinkTimer) > 0 ? 1.6 : 0.2;
+                            }
+
+                            // Steer drone immediately towards player
+                            const angleToPlayer = Math.atan2(playerPos.x - hunterPos.x, playerPos.z - hunterPos.z);
+                            const currentSpeed = (hunterSpeed + 2.0) * delta;
+                            const nextHunterX = hunterPos.x + Math.sin(angleToPlayer) * currentSpeed;
+                            const nextHunterZ = hunterPos.z + Math.cos(angleToPlayer) * currentSpeed;
+
+                            if (!checkCollisions(nextHunterX, nextHunterZ, true)) {
+                                hunterGroup.position.set(nextHunterX, 0.9, nextHunterZ);
+                            }
+
+                            // Capture boundary check
+                            if (detectionLevel >= 100) {
+                                triggerErrorSound();
+                                endGame("DEFEATED! SCAN CAPTURED USER");
+                                return;
+                            }
+                        } else {
+                            // Player successfully hid or stayed far
+                            if (hunterState === 'chase') {
+                                hunterState = 'investigate';
+                                hunterInvestigateTimer = 2.0;
+                                hunterPatrolTarget.copy(playerPos); // inspect last known position
+                            }
+
+                            // Detection meter cools down when safe
+                            detectionLevel = Math.max(detectionLevel - delta * 18, 0);
+
+                            proximityText.textContent = "CLOAKED";
+                            proximityText.style.color = "#10b981";
+
+                            const hCore = hunterGroup.children[0];
+                            if (hCore && hCore.material) {
+                                hCore.material.emissiveIntensity = 0.55; // default calm glow
+                            }
+
+                            if (hunterState === 'investigate') {
+                                hunterInvestigateTimer -= delta;
+                                if (hunterInvestigateTimer <= 0) {
+                                    hunterState = 'patrol';
+                                    hunterPatrolTarget.copy(patrolPoints[Math.floor(Math.random() * patrolPoints.length)]);
+                                }
+                            }
+
+                            // Fly smoothly towards target point (patrol waypoint or suspicious coordinate)
+                            const distToTarget = hunterPos.distanceTo(hunterPatrolTarget);
+                            if (distToTarget > 0.4) {
+                                const angle = Math.atan2(hunterPatrolTarget.x - hunterPos.x, hunterPatrolTarget.z - hunterPos.z);
+                                const currentSpeed = (hunterState === 'investigate' ? hunterSpeed * 0.8 : hunterSpeed * 0.5) * delta;
+                                const nextHunterX = hunterPos.x + Math.sin(angle) * currentSpeed;
+                                const nextHunterZ = hunterPos.z + Math.cos(angle) * currentSpeed;
+
+                                if (!checkCollisions(nextHunterX, nextHunterZ, true)) {
+                                    hunterGroup.position.set(nextHunterX, 0.9, nextHunterZ);
+                                }
+                            } else if (hunterState === 'patrol') {
+                                // Waypoint reached, fetch next random point
+                                hunterPatrolTarget.copy(patrolPoints[Math.floor(Math.random() * patrolPoints.length)]);
                             }
                         }
                     }
-                });
+                }
             }
 
             if (renderer) {

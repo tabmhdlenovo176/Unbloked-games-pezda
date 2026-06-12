@@ -41,7 +41,7 @@ const BACKUP_GAMES: Game[] = [
     "description": "Control a glowing pixel snake, eat glowing apples, and grow as long as possible without hitting walls or biting your own tail!",
     "category": "Retro Arcade",
     "iframeUrl": "/games/snake/index.html",
-    "thumbnail": "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?auto=format&fit=crop&w=400&h=300&q=80",
+    "thumbnail": "/games/snake/thumbnail.jpg",
     "controls": "Arrow keys to steer on Desktop, or On-Screen arrows on mobile.",
     "rating": "4.8",
     "plays": "14.2K",
@@ -54,7 +54,7 @@ const BACKUP_GAMES: Game[] = [
     "description": "Slide matching neon tiles together to double their value. Use clever spatial logic to merge your way up to the ultimate 2048 tile!",
     "category": "Puzzle & Logic",
     "iframeUrl": "/games/2048/index.html",
-    "thumbnail": "https://images.unsplash.com/photo-1611195974226-a6a9be9dd763?auto=format&fit=crop&w=400&h=300&q=80",
+    "thumbnail": "/games/2048/thumbnail.jpg",
     "controls": "Arrow keys to slide tiles on Desktop, or On-Screen buttons on Mobile.",
     "rating": "4.7",
     "plays": "18.5K",
@@ -67,7 +67,7 @@ const BACKUP_GAMES: Game[] = [
     "description": "Unleash high-speed synthwave spheres to smash rows of neon blocks! Position the sliding paddle with swift precision to keep the ball from falling.",
     "category": "Arcade Action",
     "iframeUrl": "/games/brick-breaker/index.html",
-    "thumbnail": "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=400&h=300&q=80",
+    "thumbnail": "/games/brick-breaker/thumbnail.jpg",
     "controls": "Move Mouse or hold Left/Right keyboard arrows to guide Paddle.",
     "rating": "4.9",
     "plays": "22.1K",
@@ -80,7 +80,7 @@ const BACKUP_GAMES: Game[] = [
     "description": "The grandfather of table tennis simulators! Face a smart computer opponent, time your bounces perfectly, and win 7 rounds to dominate.",
     "category": "Sports Simulator",
     "iframeUrl": "/games/pong/index.html",
-    "thumbnail": "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=400&h=300&q=80",
+    "thumbnail": "/games/pong/thumbnail.jpg",
     "controls": "W/S or Up/Down arrows to slide. On-Screen controls available.",
     "rating": "4.5",
     "plays": "9.8K",
@@ -93,7 +93,7 @@ const BACKUP_GAMES: Game[] = [
     "description": "Guide a high-energy yellow pixel jet through rows of looming retro green plumbing pipes. Time each bounce perfectly to survive the narrow gaps!",
     "category": "Arcade Timing",
     "iframeUrl": "/games/flappy-bird/index.html",
-    "thumbnail": "https://images.unsplash.com/photo-1553481187-be93c21490a9?auto=format&fit=crop&w=400&h=300&q=80",
+    "thumbnail": "/games/flappy-bird/thumbnail.jpg",
     "controls": "Press SPACEBAR, mouse click, or tap touch screens to flap.",
     "rating": "4.6",
     "plays": "31.4K",
@@ -140,30 +140,30 @@ const BACKUP_GAMES: Game[] = [
     "difficulty": "Easy to Medium"
   },
   {
-    "id": "brainrot",
-    "title": "Brainrot Surfer 3D",
-    "description": "Survive the decay of absolute brainrot doom-scrolling! Dodge toxic Grimace Shakes & cringe red spikes while accumulating W-Rizz and Sigma points! High-speed cyberpunk arcade simulator.",
-    "category": "Arcade Action",
-    "iframeUrl": "/games/brainrot/index.html",
-    "thumbnail": "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=400&h=300&q=80",
-    "controls": "Steer using keyboard Arrow Keys or Tap/Click directly on falling meme items to instantly harvest them!",
-    "rating": "4.9",
-    "plays": "42.5K",
-    "accentColor": "#f43f5e",
-    "difficulty": "Scales Up"
-  },
-  {
     "id": "hide_seek",
     "title": "Neon Seeker 3D",
     "description": "Track, scan, and tag hidden rogue hider anomalies camouflaged behind cybernetic obstacles! Trigger your Proximity Sonar radar to compute signal ranges before power cells drain.",
     "category": "3D Simulators",
     "iframeUrl": "/games/hide-seek/index.html",
-    "thumbnail": "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=400&h=300&q=80",
+    "thumbnail": "/games/hide-seek/thumbnail.jpg",
     "controls": "Arrow keys / WASD to steer Seeker Drone. Trigger Sonar Ping to track hiders.",
     "rating": "4.8",
     "plays": "18.3K",
     "accentColor": "#06b6d4",
     "difficulty": "Medium to Hard"
+  },
+  {
+    "id": "apps_script_arcade",
+    "title": "Apps Script Retro Arena",
+    "description": "Unlock a high-energy retro arcade workspace compiled on a custom cloud script engine. Run secure local code calculations, perfect your layout inputs, and score higher!",
+    "category": "Retro Arcade",
+    "iframeUrl": "https://script.google.com/macros/s/AKfycbxuSWh2XTYFZSscENDakbdpcIJ1SoqzNmRYluJlgZDZpiEIDPGfzvE_PIVBis9Aa62keA/exec",
+    "thumbnail": "/games/apps-script/thumbnail.jpg",
+    "controls": "Navigate menus with mouse or touch, and use standard keyboard or on-screen inputs.",
+    "rating": "4.9",
+    "plays": "25.4K",
+    "accentColor": "#10b981",
+    "difficulty": "Easy to Hard"
   }
 ];
 
@@ -437,7 +437,10 @@ export default function App() {
                   src={activeGame.iframeUrl}
                   title={activeGame.title}
                   className="w-full max-w-full aspect-[4/3] min-h-[420px] rounded-xl border-0 overflow-hidden bg-slate-900 shadow-inner"
-                  sandbox="allow-scripts allow-same-origin allow-modals allow-popups"
+                  sandbox={activeGame.iframeUrl.startsWith('http') 
+                    ? "allow-scripts allow-popups allow-forms allow-same-origin allow-popups-to-escape-sandbox allow-downloads allow-modals allow-storage-access-by-user-activation" 
+                    : "allow-scripts allow-same-origin allow-modals allow-popups"
+                  }
                   onLoad={() => setIframeLoaded(true)}
                   id="game-iframe-player"
                 />

@@ -42,8 +42,8 @@
         }
         h1 {
             font-size: 20px;
-            color: #10b981;
-            text-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+            color: #d97706;
+            text-shadow: none;
             text-transform: uppercase;
         }
         .hud {
@@ -59,23 +59,23 @@
             gap: 15px;
         }
         .highlight {
-            color: #10b981;
+            color: #d97706;
         }
         #jobSign {
             font-size: 11px;
             letter-spacing: 0.5px;
-            color: #f59e0b;
+            color: #d97706;
             text-transform: uppercase;
         }
         #canvasContainer {
             width: 100%;
             aspect-ratio: 4 / 3;
             background-color: #0b0f19;
-            border: 3px solid #10b981;
+            border: 3px solid #475569;
             border-radius: 8px;
             overflow: hidden;
             position: relative;
-            box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
         }
         .overlay {
             position: absolute;
@@ -91,7 +91,7 @@
             border-radius: 6px;
         }
         .overlay h2 {
-            color: #10b981;
+            color: #d97706;
             font-size: 24px;
             margin-bottom: 8px;
             text-transform: uppercase;
@@ -104,7 +104,7 @@
             line-height: 1.4;
         }
         .btn {
-            background-color: #10b981;
+            background-color: #d97706;
             color: #030712;
             border: none;
             padding: 10px 20px;
@@ -116,7 +116,7 @@
             transition: all 0.2s;
         }
         .btn:hover {
-            background-color: #34d399;
+            background-color: #f59e0b;
             transform: scale(1.05);
         }
         .controls-hint {
@@ -157,7 +157,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>HAULER 3D PRO</h1>
+            <h1>LOGISTICS TRUCK 3D</h1>
             <div class="hud">
                 <div class="hud-row">
                     <div>CARGO SHIFT: <span id="cargoVal" class="highlight">0%</span></div>
@@ -170,8 +170,8 @@
         <div id="canvasContainer">
             <div id="overlay" class="overlay">
                 <h2 id="overlayTitle">TRUCK SIMULATOR 3D</h2>
-                <p id="overlaySub">Maneuver an articulated industrial container truck. Beware of jackknifing as your cargo swings!</p>
-                <button id="startBtn" class="btn">ATTACH TRAILER & REVVV</button>
+                <p id="overlaySub">Maneuver a heavy-duty semi-truck with realistic hitching. Deliver heavy cargos across curves and highways!</p>
+                <button id="startBtn" class="btn">DEPART DEPOT</button>
             </div>
         </div>
 
@@ -309,8 +309,8 @@
 
         function initScene() {
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x02040a);
-            scene.fog = new THREE.FogExp2(0x02040a, 0.012);
+            scene.background = new THREE.Color(0xbae6fd); // Beautiful day-sky blue
+            scene.fog = new THREE.FogExp2(0xbae6fd, 0.0075); // Soft atmospheric breeze
 
             camera = new THREE.PerspectiveCamera(60, canvasContainer.clientWidth / canvasContainer.clientHeight, 0.1, 1000);
             camera.position.set(0, 7, 16);
@@ -324,30 +324,83 @@
             canvasContainer.appendChild(renderer.domElement);
 
             // Lighting
-            const ambient = new THREE.AmbientLight(0xffffff, 0.35);
+            const ambient = new THREE.AmbientLight(0xffffff, 0.6); // Strong clear daylight
             scene.add(ambient);
 
-            const direct = new THREE.DirectionalLight(0x10b981, 0.7);
-            direct.position.set(-6, 20, 8);
+            const direct = new THREE.DirectionalLight(0xfffbeb, 1.15); // Golden-amber daylight sun
+            direct.position.set(-15, 45, 12);
             scene.add(direct);
 
-            // Checkered Transport Road segments
+            // Large Green Countryside Grass Terrain Plane
+            const groundGeo = new THREE.PlaneGeometry(2500, 2500);
+            const groundMat = new THREE.MeshStandardMaterial({ 
+                color: 0x1b4332, // Lush meadow pine green
+                roughness: 0.9,
+                metalness: 0.05
+            });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -0.15; // Set slightly below road segments
+            scene.add(ground);
+
+            // Premium Asphalt Road Segments with Solid Shoulders and Dashed Lane Markings
             for(let i = 0; i < 25; i++) {
                 const segGeo = new THREE.PlaneGeometry(30, 42);
                 const segMat = new THREE.MeshStandardMaterial({ 
-                    color: i % 2 === 0 ? 0x0f172a : 0x111e36, 
-                    roughness: 0.85 
+                    color: 0x0c0f17, // Solid realistic dark asphalt
+                    roughness: 0.85,
+                    metalness: 0.1
                 });
                 const seg = new THREE.Mesh(segGeo, segMat);
                 seg.rotation.x = -Math.PI / 2;
                 seg.userData = { relativeZ: -i * 40 };
+
+                // Left solid white shoulder line
+                const leftSolid = new THREE.Mesh(
+                    new THREE.PlaneGeometry(0.3, 42),
+                    new THREE.MeshBasicMaterial({ color: 0xffffff })
+                );
+                leftSolid.position.set(-14.8, 0, 0.01);
+                seg.add(leftSolid);
+
+                // Right solid white shoulder line
+                const rightSolid = new THREE.Mesh(
+                    new THREE.PlaneGeometry(0.3, 42),
+                    new THREE.MeshBasicMaterial({ color: 0xffffff })
+                );
+                rightSolid.position.set(14.8, 0, 0.01);
+                seg.add(rightSolid);
+
+                // Dashed white lane lines dividing the 3 lanes
+                for (let zOffset of [-14, 0, 14]) {
+                    const dashLeft = new THREE.Mesh(
+                        new THREE.PlaneGeometry(0.2, 4),
+                        new THREE.MeshBasicMaterial({ color: 0xffffff })
+                    );
+                    dashLeft.position.set(-3.75, zOffset, 0.01);
+                    seg.add(dashLeft);
+
+                    const dashRight = new THREE.Mesh(
+                        new THREE.PlaneGeometry(0.2, 4),
+                        new THREE.MeshBasicMaterial({ color: 0xffffff })
+                    );
+                    dashRight.position.set(3.75, zOffset, 0.01);
+                    seg.add(dashRight);
+                }
+
                 scene.add(seg);
             }
 
-            // Dark Concrete Wall Posts containing roadside amber guides
+            // Majestic pine trees lining both sides of the highway instead of fluorescent markers
             for(let i = 0; i > -1000; i -= 40) {
-                createWallLight(-15.5, i, 0xf59e0b);
-                createWallLight(15.5, i, 0xf59e0b);
+                createWallLight(-15.5, i, 0x14532d);
+                createWallLight(15.5, i, 0x14532d);
+            }
+
+            // Create 3D buildings along both sides of the road
+            for(let i = 0; i > -1000; i -= 80) {
+                createSceneryBuilding(-23.5, i, i);
+                createSceneryBuilding(23.5, i - 40, i + 15);
             }
 
             // Create Heavy Truck Composite
@@ -363,10 +416,10 @@
 
             scene.add(truckGroup);
 
-            // Obstacles
+            // Obstacles: spawn a massive fleet of sixty-four functional driving traffic cars in front of the player!
             obstacles = [];
-            for(let i = 1; i <= 4; i++) {
-                spawnObstacle(-120 - i * 90);
+            for (let i = 1; i <= 64; i++) {
+                spawnObstacle(-40 - i * 25);
             }
 
             // Set up our first delivery contract!
@@ -456,44 +509,126 @@
             }
         }
 
-        function createWallLight(x, z, colorHex) {
-            const poleGeo = new THREE.BoxGeometry(0.35, 5, 0.35);
-            const poleMat = new THREE.MeshBasicMaterial({ color: 0x1f2937 });
-            const p = new THREE.Mesh(poleGeo, poleMat);
-            p.position.set(x, 2.5, z);
-            p.userData = { relativeZ: z, xOffset: x };
-            scene.add(p);
+        function createSceneryBuilding(x, z, idx) {
+            const bGroup = new THREE.Group();
+            bGroup.userData = { relativeZ: z, xOffset: x };
 
-            const lightGeo = new THREE.SphereGeometry(0.4, 8, 8);
-            const lightMat = new THREE.MeshBasicMaterial({ color: colorHex });
-            const l = new THREE.Mesh(lightGeo, lightMat);
-            l.position.set(x, 5, z);
-            l.userData = { relativeZ: z, xOffset: x, heightY: 5.0 };
-            scene.add(l);
+            const colors = [0x1e293b, 0x334155, 0x0f172a, 0x111827, 0x1e1b4b, 0x3f3f46, 0x27272a, 0x18181b];
+            const colorSelected = colors[Math.abs(idx) % colors.length];
+
+            const bWidth = 5.5 + (Math.sin(idx * 7) * 1.5);
+            const bDepth = 5.5 + (Math.cos(idx * 11) * 1.5);
+            const bHeight = 16.0 + (Math.sin(idx * 13) * 6.0);
+
+            const geo = new THREE.BoxGeometry(bWidth, bHeight, bDepth);
+            const mat = new THREE.MeshStandardMaterial({ 
+                color: colorSelected, 
+                roughness: 0.8,
+                metalness: 0.15 
+            });
+            const mainMesh = new THREE.Mesh(geo, mat);
+            mainMesh.position.y = bHeight / 2;
+            bGroup.add(mainMesh);
+
+            // Row-alternating glowing office window units
+            const numFloors = Math.floor(bHeight / 1.6);
+            const winMat = new THREE.MeshBasicMaterial({ color: 0xfffeb3 });
+            const darkWinMat = new THREE.MeshBasicMaterial({ color: 0x111317 });
+
+            for (let floor = 0; floor < numFloors; floor += 2) {
+                const y = -bHeight / 2 + 0.8 + floor * 1.6;
+                // Front and Back windows (X-distributed)
+                for (let wx = -bWidth / 2 + 0.8; wx <= bWidth / 2 - 0.8; wx += 1.4) {
+                    const isLit = (Math.sin(floor * 4 + wx * 10 + idx) > -0.1);
+                    const curWinMat = isLit ? winMat : darkWinMat;
+
+                    const winN = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.65, 0.1), curWinMat);
+                    winN.position.set(wx, y, bDepth / 2 + 0.05);
+                    mainMesh.add(winN);
+
+                    const winS = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.65, 0.1), curWinMat);
+                    winS.position.set(wx, y, -bDepth / 2 - 0.05);
+                    mainMesh.add(winS);
+                }
+            }
+
+            // Rooftop antenna array structure with red warning flashing aviation beacon
+            const antennaGeo = new THREE.CylinderGeometry(0.04, 0.08, 2.8, 4);
+            const antennaMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.4 });
+            const antenna = new THREE.Mesh(antennaGeo, antennaMat);
+            antenna.position.set(0, bHeight / 2 + 1.4, 0);
+            mainMesh.add(antenna);
+
+            const beacon = new THREE.Mesh(
+                new THREE.SphereGeometry(0.16, 6, 6),
+                new THREE.MeshBasicMaterial({ color: 0xef4444 })
+            );
+            beacon.position.y = 1.4;
+            antenna.add(beacon);
+
+            scene.add(bGroup);
+        }
+
+        function createWallLight(x, z, colorHex) {
+            // Replaced generic poles with majestic high-fidelity evergreen trees!
+            const treeGroup = new THREE.Group();
+            treeGroup.userData = { relativeZ: z, xOffset: x };
+
+            // Brown Trunk
+            const trunkGeo = new THREE.CylinderGeometry(0.24, 0.4, 2.0, 6);
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.95 });
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.y = 1.0;
+            treeGroup.add(trunk);
+
+            // Cone foliage layers
+            const coneGeo = new THREE.ConeGeometry(1.9, 4.5, 6);
+            const coneMat = new THREE.MeshStandardMaterial({ color: 0x14532d, roughness: 0.85 });
+            const cone = new THREE.Mesh(coneGeo, coneMat);
+            cone.position.y = 3.6;
+            treeGroup.add(cone);
+
+            scene.add(treeGroup);
         }
 
         function createCab() {
             const group = new THREE.Group();
 
-            // Wheels
+            // Wheels with realistic silver metallic rim inserts
             const whGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.5, 12);
             const whMat = new THREE.MeshStandardMaterial({ color: 0x030712 });
+            const rimGeo = new THREE.CylinderGeometry(0.36, 0.36, 0.52, 8);
+            const rimMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.95, roughness: 0.1 });
+
             const frontLeft = new THREE.Mesh(whGeo, whMat);
             frontLeft.rotation.z = Math.PI/2;
             frontLeft.position.set(-1.15, 0.55, -1.2);
             group.add(frontLeft);
+            const rimFL = new THREE.Mesh(rimGeo, rimMat);
+            rimFL.rotation.z = Math.PI/2;
+            rimFL.position.set(-1.16, 0.55, -1.2);
+            group.add(rimFL);
 
             const frontRight = frontLeft.clone();
             frontRight.position.x = 1.15;
             group.add(frontRight);
+            const rimFR = rimFL.clone();
+            rimFR.position.x = 1.16;
+            group.add(rimFR);
 
             const rearLeft = frontLeft.clone();
             rearLeft.position.z = 0.8;
             group.add(rearLeft);
+            const rimRL = rimFL.clone();
+            rimRL.position.z = 0.8;
+            group.add(rimRL);
 
             const rearRight = frontRight.clone();
             rearRight.position.z = 0.8;
             group.add(rearRight);
+            const rimRR = rimFR.clone();
+            rimRR.position.z = 0.8;
+            group.add(rimRR);
 
             // Cab Chassis
             const chGeo = new THREE.BoxGeometry(2.1, 0.4, 4);
@@ -502,19 +637,75 @@
             chassis.position.y = 0.7;
             group.add(chassis);
 
-            // Head Cab Cabin Body
+            // Chrome metal structural details: Twin Fuel Tanks
+            const chromeMat = new THREE.MeshStandardMaterial({ color: 0xe5e7eb, metalness: 0.95, roughness: 0.08 });
+            const tankGeo = new THREE.CylinderGeometry(0.35, 0.35, 1.4, 8);
+            
+            const fuelTankL = new THREE.Mesh(tankGeo, chromeMat);
+            fuelTankL.rotation.x = Math.PI / 2;
+            fuelTankL.position.set(-1.12, 0.62, -0.1);
+            group.add(fuelTankL);
+
+            const fuelTankR = fuelTankL.clone();
+            fuelTankR.position.x = 1.12;
+            group.add(fuelTankR);
+
+            // Twin vertical Exhaust Chimney Stacks behind cabin
+            const chimneyGeo = new THREE.CylinderGeometry(0.11, 0.11, 1.9, 6);
+            const chimneyL = new THREE.Mesh(chimneyGeo, chromeMat);
+            chimneyL.position.set(-0.95, 1.82, -0.1);
+            group.add(chimneyL);
+
+            const chimneyR = chimneyL.clone();
+            chimneyR.position.x = 0.95;
+            group.add(chimneyR);
+
+            // Fifth Wheel heavy coupling plate attached to the rear of the cab chassis
+            const fifthWheelGeo = new THREE.CylinderGeometry(0.6, 0.6, 0.12, 10);
+            const fifthWheelMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.7, metalness: 0.95 });
+            const fifthWheel = new THREE.Mesh(fifthWheelGeo, fifthWheelMat);
+            fifthWheel.rotation.x = 0.04;
+            fifthWheel.position.set(0, 0.95, 0.8);
+            group.add(fifthWheel);
+
+            // Head Cab Cabin Body in bright industrial yellow-orange
             const bodyGeo = new THREE.BoxGeometry(2.1, 1.8, 1.8);
-            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x059669, roughness: 0.22 });
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0xe0a96d, roughness: 0.22 });
             const b = new THREE.Mesh(bodyGeo, bodyMat);
             b.position.set(0, 1.7, -1.0);
             group.add(b);
 
-            // Windows
+            // Detailed heavy chrome front radiator grille
+            const grilleGeo = new THREE.BoxGeometry(1.6, 0.8, 0.05);
+            const grille = new THREE.Mesh(grilleGeo, chromeMat);
+            grille.position.set(0, 1.3, -1.91);
+            group.add(grille);
+
+            // Windows - smoky windshield look
             const wGeo = new THREE.BoxGeometry(2.12, 0.7, 0.9);
-            const wMat = new THREE.MeshBasicMaterial({ color: 0x1e293b });
+            const wMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.1, metalness: 0.85 });
             const w = new THREE.Mesh(wGeo, wMat);
             w.position.set(0, 1.9, -1.0);
             group.add(w);
+
+            // Side-view mirrors on door panels
+            const mirrorGeo = new THREE.BoxGeometry(0.15, 0.52, 0.28);
+            const mirrorGlassGeo = new THREE.BoxGeometry(0.02, 0.46, 0.22);
+            const mirrorGlassMat = new THREE.MeshStandardMaterial({ color: 0xbfdbfe, roughness: 0.05, metalness: 0.95 });
+            
+            const mirrorL = new THREE.Mesh(mirrorGeo, bodyMat);
+            mirrorL.position.set(-1.12, 1.8, -1.2);
+            const glassL = new THREE.Mesh(mirrorGlassGeo, mirrorGlassMat);
+            glassL.position.set(-0.08, 0, 0);
+            mirrorL.add(glassL);
+            group.add(mirrorL);
+
+            const mirrorR = new THREE.Mesh(mirrorGeo, bodyMat);
+            mirrorR.position.set(1.12, 1.8, -1.2);
+            const glassR = new THREE.Mesh(mirrorGlassGeo, mirrorGlassMat);
+            glassR.position.set(0.08, 0, 0);
+            mirrorR.add(glassR);
+            group.add(mirrorR);
 
             return group;
         }
@@ -528,6 +719,19 @@
             const chassis = new THREE.Mesh(chGeo, chMat);
             chassis.position.y = 0.8;
             group.add(chassis);
+
+            // Heavy steel coupling gooseneck pull-neck extending from under trailer frame to the fifth-wheel
+            const drawbarGeo = new THREE.BoxGeometry(0.35, 0.35, 1.4);
+            const drawbarMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.9, metalness: 0.95 });
+            const drawbar = new THREE.Mesh(drawbarGeo, drawbarMat);
+            drawbar.position.set(0, 0.8, -3.8); // projects forward past the trailer front
+            group.add(drawbar);
+
+            // Connecting kingpin locked tip inserting directly at the pivot coordinates
+            const kingpinGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.4, 8);
+            const kingpin = new THREE.Mesh(kingpinGeo, drawbarMat);
+            kingpin.position.set(0, 0.6, -4.2); // matches pivot joint coordinate perfectly!
+            group.add(kingpin);
 
             // Heavy Dual Rear Wheels
             const whGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.6, 12);
@@ -565,19 +769,92 @@
             return group;
         }
 
+        function createTrafficCar(colorHex) {
+            const carGroup = new THREE.Group();
+
+            // Wheels
+            const wheelGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.35, 12);
+            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111827 });
+            
+            const w1 = new THREE.Mesh(wheelGeo, wheelMat);
+            w1.rotation.z = Math.PI / 2;
+            w1.position.set(-0.95, -0.1, 0.95);
+            carGroup.add(w1);
+
+            const w2 = w1.clone();
+            w2.position.x = 0.95;
+            carGroup.add(w2);
+
+            const w3 = w1.clone();
+            w3.position.z = -0.95;
+            carGroup.add(w3);
+
+            const w4 = w2.clone();
+            w4.position.z = -0.95;
+            carGroup.add(w4);
+
+            // Car body (sleek low chassis)
+            const bodyGeo = new THREE.BoxGeometry(1.9, 0.55, 3.2);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.2, metalness: 0.5 });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = 0.25;
+            carGroup.add(body);
+
+            // Roof Cabin
+            const cabinGeo = new THREE.BoxGeometry(1.4, 0.45, 1.5);
+            const cabinMat = new THREE.MeshStandardMaterial({ color: 0x111116, roughness: 0.1 });
+            const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+            cabin.position.set(0, 0.75, -0.1);
+            carGroup.add(cabin);
+
+            // Windshield / Windows
+            const shieldGeo = new THREE.BoxGeometry(1.3, 0.35, 0.05);
+            const shieldMat = new THREE.MeshStandardMaterial({ color: 0x243340, roughness: 0.1, metalness: 0.8 });
+            const frontShield = new THREE.Mesh(shieldGeo, shieldMat);
+            frontShield.position.set(0, 0.72, -0.85);
+            frontShield.rotation.x = -0.3;
+            carGroup.add(frontShield);
+
+            // Headlights glowing neon
+            const hlGeo = new THREE.BoxGeometry(0.3, 0.15, 0.1);
+            const hlMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const hlLeft = new THREE.Mesh(hlGeo, hlMat);
+            hlLeft.position.set(-0.7, 0.25, -1.6);
+            carGroup.add(hlLeft);
+
+            const hlRight = hlLeft.clone();
+            hlRight.position.x = 0.7;
+            carGroup.add(hlRight);
+
+            // Taillights
+            const tlMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+            const tlLeft = new THREE.Mesh(hlGeo, tlMat);
+            tlLeft.position.set(-0.7, 0.25, 1.6);
+            carGroup.add(tlLeft);
+
+            const tlRight = tlLeft.clone();
+            tlRight.position.x = 0.7;
+            carGroup.add(tlRight);
+
+            return carGroup;
+        }
+
         function spawnObstacle(zPos) {
             const lane = Math.floor(Math.random() * 3) - 1; // -1, 0, 1
-            const colors = [0xef4444, 0xf59e0b, 0x3b82f6];
+            const colors = [0x50e3c2, 0xd0ff14, 0xef4444, 0xf59e0b, 0x3b82f6];
             const color = colors[Math.floor(Math.random() * colors.length)];
 
-            // Obstacle concrete barrier
-            const barrGeo = new THREE.BoxGeometry(5.5, 1.4, 2);
-            const barrMat = new THREE.MeshStandardMaterial({ color: color });
-            const barrier = new THREE.Mesh(barrGeo, barrMat);
-            barrier.position.set(lane * 7.5, 0.7, zPos);
-            barrier.userData = { relativeZ: zPos, lane: lane };
-            scene.add(barrier);
-            obstacles.push(barrier);
+            // Create a functional, gorgeous 3D moving traffic car (obstacle)
+            const obs = createTrafficCar(color);
+            obs.position.set(lane * 7.5, 0.6, zPos);
+            obs.userData = { 
+                relativeZ: zPos, 
+                lane: lane,
+                speed: 25 + Math.random() * 20, // speed in KM/H (sluggish highway traffic is 25-45 KM/H)
+                isCar: true
+            };
+            scene.add(obs);
+            obstacles.push(obs);
         }
 
         function restartGame() {
@@ -659,17 +936,18 @@
             cab.position.x = currentCurveCenter + lateralPos;
             cab.position.z = 0;
 
-            const targetTrailerAngle = (cab.position.x - trailer.position.x) * 0.42;
-            trailerAngle += (targetTrailerAngle - trailerAngle) * 3.8 * delta;
+            // TRUCK IS ONE RIGID SOLID PIECE: The trailer/cargo body is permanently locked straight behind the cab!
+            const targetTrailerAngle = 0;
+            trailerAngle = 0;
 
-            trailer.position.x = cab.position.x - Math.sin(trailerAngle) * 4.2;
-            trailer.position.z = cab.position.z + Math.cos(trailerAngle) * 4.2;
-            trailer.rotation.y = trailerAngle;
+            trailer.position.x = cab.position.x;
+            // The trailer is locked directly inline with the cab chassis as a single rigid vehicle frame
+            trailer.position.z = 5.0;
+            trailer.rotation.y = 0;
 
-            // Squeal or alert trailer shift
-            const cargoAngleDeg = Math.round(Math.abs(trailerAngle) * (180 / Math.PI));
-            const shiftPercent = Math.min(Math.round((cargoAngleDeg / 40) * 100), 100);
-            cargoVal.textContent = shiftPercent + "%";
+            // Integrity stays 100% perfectly solid and stable since it is a single-piece truck frame
+            const shiftPercent = 0;
+            cargoVal.textContent = "100% STABLE";
             
             if (shiftPercent > 78) {
                 cargoVal.style.color = '#f87171'; // Warning alarm
@@ -695,16 +973,24 @@
                 cab.position.y = 0;
             }
 
-            // Align all relative elements (checkered road meshes, traffic, beacons)
+            // Align all relative elements (road lines, traffic, beacons)
             scene.traverse(child => {
                 if (child.userData && child.userData.relativeZ !== undefined) {
-                    child.userData.relativeZ += zSpeed;
+                    let localZSpeed = zSpeed;
+                    if (child.userData.speed !== undefined) {
+                        const trafficMetersPerSec = (child.userData.speed * delta);
+                        localZSpeed -= trafficMetersPerSec;
+                    }
+                    child.userData.relativeZ += localZSpeed;
 
                     // Recycling
                     if (child.userData.relativeZ > 20) {
                         if (obstacles.includes(child)) {
-                            child.userData.relativeZ = -500 - Math.random() * 150;
+                            child.userData.relativeZ = -1500 - Math.random() * 500;
                             child.userData.lane = Math.floor(Math.random() * 3) - 1;
+                            if (child.userData.isCar) {
+                                child.userData.speed = 25 + Math.random() * 20;
+                            }
                         } else {
                             child.userData.relativeZ -= 1000;
                         }
