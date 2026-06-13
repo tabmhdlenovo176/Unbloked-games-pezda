@@ -397,10 +397,12 @@
                 createWallLight(15.5, i, 0x14532d);
             }
 
-            // Create 3D buildings along both sides of the road
-            for(let i = 0; i > -1000; i -= 80) {
+            // Create dense 3D city buildings along both sides of the road
+            for(let i = 0; i > -1500; i -= 35) {
                 createSceneryBuilding(-23.5, i, i);
-                createSceneryBuilding(23.5, i - 40, i + 15);
+                createSceneryBuilding(23.5, i - 15, i + 15);
+                createSceneryBuilding(-30.5, i - 10, i * 2);
+                createSceneryBuilding(30.5, i - 25, i * 3);
             }
 
             // Create Heavy Truck Composite
@@ -418,8 +420,8 @@
 
             // Obstacles: spawn a massive fleet of sixty-four functional driving traffic cars in front of the player!
             obstacles = [];
-            for (let i = 1; i <= 64; i++) {
-                spawnObstacle(-40 - i * 25);
+            for (let i = 1; i <= 110; i++) {
+                spawnObstacle(-40 - i * 18);
             }
 
             // Set up our first delivery contract!
@@ -850,7 +852,7 @@
             obs.userData = { 
                 relativeZ: zPos, 
                 lane: lane,
-                speed: 25 + Math.random() * 20, // speed in KM/H (sluggish highway traffic is 25-45 KM/H)
+                speed: 10 + Math.random() * 12, // extremely slow truck motorway traffic (10 to 22 KM/H)
                 isCar: true
             };
             scene.add(obs);
@@ -989,7 +991,7 @@
                             child.userData.relativeZ = -1500 - Math.random() * 500;
                             child.userData.lane = Math.floor(Math.random() * 3) - 1;
                             if (child.userData.isCar) {
-                                child.userData.speed = 25 + Math.random() * 20;
+                                child.userData.speed = 10 + Math.random() * 12;
                             }
                         } else {
                             child.userData.relativeZ -= 1000;

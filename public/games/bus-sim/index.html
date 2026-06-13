@@ -422,10 +422,12 @@
                 createCityPillar(16, i);
             }
 
-            // Create 3D buildings along both sides of the road
-            for(let i = 0; i > -1000; i -= 90) {
+            // Create dense 3D city buildings along both sides of the road
+            for(let i = 0; i > -1500; i -= 35) {
                 createSceneryBuilding(-24.5, i, i);
-                createSceneryBuilding(24.5, i - 45, i + 15);
+                createSceneryBuilding(24.5, i - 15, i + 15);
+                createSceneryBuilding(-31.5, i - 10, i * 2);
+                createSceneryBuilding(31.5, i - 25, i * 3);
             }
 
             // Create Transit Bus
@@ -446,9 +448,9 @@
 
             // Populate moving traffic obstacles
             obstacles = [];
-            // Spawn 65 functional traffic obstacle cars nicely spaced in front of the bus
-            for (let i = 0; i < 65; i++) {
-                spawnObstacle(-40 - i * 30);
+            // Spawn 100 functional traffic obstacle cars nicely spaced in front of the bus
+            for (let i = 0; i < 100; i++) {
+                spawnObstacle(-40 - i * 18);
             }
         }
 
@@ -533,7 +535,7 @@
             obs.userData = { 
                 relativeZ: zPos, 
                 lane: lane, 
-                speed: 15 + Math.random() * 20, // urban city traffic speeds (15 to 35 KM/H)
+                speed: 8 + Math.random() * 12, // slow municipal traffic (8 to 20 KM/H)
                 isCar: true 
             };
             scene.add(obs);
@@ -990,7 +992,7 @@
                             child.userData.relativeZ = -1800 - Math.random() * 450;
                             child.userData.lane = Math.floor(Math.random() * 3) - 1; // Left, mid, right lanes (-1, 0, 1)
                             if (child.userData.isCar) {
-                                child.userData.speed = 15 + Math.random() * 20; // 15 to 35 KM/H slow urban bus lane traffic
+                                child.userData.speed = 8 + Math.random() * 12; // slow municipal traffic (8 to 20 KM/H)
                             }
                         } else {
                             child.userData.relativeZ -= 980;

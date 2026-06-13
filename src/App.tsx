@@ -181,9 +181,18 @@ export default function App() {
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  const resolveUrl = (url: string) => {
+    if (!url) return url;
+    // Strip leading slash for games folder assets to resolve relative to current page location
+    if (url.startsWith('/games/')) {
+      return url.substring(1);
+    }
+    return url;
+  };
+
   // Load master list dynamically, with the backup static arrays as a fallback
   useEffect(() => {
-    fetch('/games.json')
+    fetch('games.json')
       .then(res => {
         if (!res.ok) throw new Error("Could not fetch games config");
         return res.json();
@@ -423,7 +432,7 @@ export default function App() {
                 {/* Secure HTML5 Sandbox frame */}
                 <iframe 
                   ref={iframeRef}
-                  src={activeGame.iframeUrl}
+                  src={resolveUrl(activeGame.iframeUrl)}
                   title={activeGame.title}
                   className="w-full max-w-full aspect-[4/3] min-h-[420px] rounded-xl border-0 overflow-hidden bg-slate-900 shadow-inner"
                   sandbox={activeGame.customSandbox || (activeGame.iframeUrl.startsWith('http') 
@@ -632,7 +641,7 @@ export default function App() {
                         {/* CARD THUMBNAIL BOX */}
                         <div className="relative aspect-[16/10] overflow-hidden bg-slate-950 border-b border-slate-800">
                           <img 
-                              src={game.thumbnail} 
+                              src={resolveUrl(game.thumbnail)} 
                               alt={game.title}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 filter brightness-95 group-hover:brightness-100"
                               referrerPolicy="no-referrer"

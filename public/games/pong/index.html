@@ -138,14 +138,14 @@
     <div class="container">
         <div class="header">
             <h1>PONG ARENA</h1>
-            <div class="scores">
+            <div class="scores" style="display: flex; gap: 40px; margin-top: 8px;">
                 <div class="score-box">
-                    <span class="score-label">PLAYER</span>
-                    <span id="playerScore">0</span>
+                    <span class="score-label" id="playerLabel" style="color: #3b82f6;">PLAYER 1</span>
+                    <span id="playerScore" style="color: #3b82f6;">0</span>
                 </div>
                 <div class="score-box">
-                    <span class="score-label">CPU AI</span>
-                    <span id="computerScore">0</span>
+                    <span class="score-label" id="computerLabel" style="color: #f43f5e;">CPU AI</span>
+                    <span id="computerScore" style="color: #f43f5e;">0</span>
                 </div>
             </div>
         </div>
@@ -156,6 +156,16 @@
             <div id="overlay" class="status-overlay">
                 <h2 id="overlayTitle">Pong Arena</h2>
                 <p id="overlaySub">Win 7 rounds to dominate!</p>
+                
+                <!-- Game Mode Switcher -->
+                <div style="margin: 12px 0; display: flex; flex-direction: column; gap: 5px; align-items: center; width: 100%;">
+                    <label style="font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 1px; font-weight: bold;">SELECT MODE:</label>
+                    <select id="gameMode" style="background: #111827; color: #10b981; border: 2px solid #10b981; padding: 6px 12px; font-family: inherit; font-size: 11px; font-weight: bold; cursor: pointer; border-radius: 4px; outline: none; width: 190px; text-align-last: center;">
+                        <option value="vs_ai">VS CPU AI</option>
+                        <option value="local_1v1">PVP 1V1 (VS FRIEND)</option>
+                    </select>
+                </div>
+
                 <button id="startBtn" class="btn">START GAME</button>
             </div>
         </div>
@@ -199,6 +209,7 @@
         let computerScore = 0;
         let targetScore = 7;
         let gameActive = false;
+        let selectedMode = "vs_ai";
 
         // Keys
         let keysPressed = {};
@@ -212,6 +223,22 @@
         }
 
         function initGame() {
+            const modeSelect = document.getElementById('gameMode');
+            selectedMode = modeSelect ? modeSelect.value : "vs_ai";
+
+            const playerLabel = document.getElementById('playerLabel');
+            const computerLabel = document.getElementById('computerLabel');
+            
+            if (selectedMode === "local_1v1") {
+                playerLabel.textContent = "PLAYER 1";
+                computerLabel.textContent = "PLAYER 2";
+                overlaySub.textContent = "Defeat your friend to claim victory!";
+            } else {
+                playerLabel.textContent = "PLAYER 1";
+                computerLabel.textContent = "CPU AI";
+                overlaySub.textContent = "Win 7 rounds to dominate!";
+            }
+
             playerScore = 0;
             computerScore = 0;
             playerScoreEl.textContent = playerScore;
@@ -248,11 +275,15 @@
         function update() {
             if (!gameActive) return;
 
-            // Player paddle movement
-            if (keysPressed['w'] || keysPressed['W'] || keysPressed['ArrowUp']) {
+            // Player 1 (Left paddle) movement: W/S (W: up, S: down)
+            if (keysPressed['w'] || keysPressed['W']) {
                 playerY -= 5;
-            } else if (keysPressed['s'] || keysPressed['S'] || keysPressed['ArrowDown']) {
+            } else if (keysPressed['s'] || keysPressed['S']) {
                 playerY += 5;
+            } else if (selectedMode === "vs_ai" && (keysPressed['ArrowUp'] || keysPressed['ArrowDown'])) {
+                // If in single-player AI mode, standard Arrows also control Player 1
+                if (keysPressed['ArrowUp']) playerY -= 5;
+                if (keysPressed['ArrowDown']) playerY += 5;
             } else {
                 playerY += playerYDir; // Touch buttons support
             }
@@ -260,15 +291,23 @@
             // Paddle Boundary limit
             playerY = Math.max(0, Math.min(canvas.height - paddleHeight, playerY));
 
-            // CPU Paddle AI movement (smooth tracking)
-            const targetY = ballY - paddleHeight / 2;
-            const diffY = targetY - computerY;
-            // The computer catches on, starts with smooth tracking, increments slightly
-            const aiSpeed = 3.2 + Math.min(computerScore * 0.4, 2.5);
-            if (diffY > 0) {
-                computerY += Math.min(aiSpeed, diffY);
+            if (selectedMode === "local_1v1") {
+                // Player 2 (Right paddle) movement: Arrows (Up: up, Down: down)
+                if (keysPressed['ArrowUp']) {
+                    computerY -= 5;
+                } else if (keysPressed['ArrowDown']) {
+                    computerY += 5;
+                }
             } else {
-                computerY += Math.max(-aiSpeed, diffY);
+                // CPU Paddle AI movement (smooth tracking)
+                const targetY = ballY - paddleHeight / 2;
+                const diffY = targetY - computerY;
+                const aiSpeed = 3.2 + Math.min(computerScore * 0.4, 2.5);
+                if (diffY > 0) {
+                    computerY += Math.min(aiSpeed, diffY);
+                } else {
+                    computerY += Math.max(-aiSpeed, diffY);
+                }
             }
             computerY = Math.max(0, Math.min(canvas.height - paddleHeight, computerY));
 
@@ -317,14 +356,24 @@
         function checkWinner() {
             if (playerScore >= targetScore) {
                 gameActive = false;
-                overlayTitle.textContent = "YOU WON!";
-                overlaySub.textContent = `You dominated the match ${playerScore}-${computerScore}!`;
+                if (selectedMode === "local_1v1") {
+                    overlayTitle.textContent = "P1 DECLARED WINNER!";
+                    overlaySub.textContent = `Player 1 won the dynamic match ${playerScore}-${computerScore}!`;
+                } else {
+                    overlayTitle.textContent = "YOU WON!";
+                    overlaySub.textContent = `You dominated the match ${playerScore}-${computerScore}!`;
+                }
                 startBtn.textContent = "PLAY AGAIN";
                 overlay.style.display = 'flex';
             } else if (computerScore >= targetScore) {
                 gameActive = false;
-                overlayTitle.textContent = "CPU DEFEAT";
-                overlaySub.textContent = `Better luck next time! score: ${playerScore}-${computerScore}`;
+                if (selectedMode === "local_1v1") {
+                    overlayTitle.textContent = "P2 DECLARED WINNER!";
+                    overlaySub.textContent = `Player 2 won the hotseat match ${computerScore}-${playerScore}!`;
+                } else {
+                    overlayTitle.textContent = "CPU DEFEAT";
+                    overlaySub.textContent = `Better luck next time! score: ${playerScore}-${computerScore}`;
+                }
                 startBtn.textContent = "TRY AGAIN";
                 overlay.style.display = 'flex';
             } else {
@@ -333,31 +382,93 @@
         }
 
         function draw() {
-            // clear
-            ctx.fillStyle = '#111827';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // 1. Draw the lush soccer stadium field background
+            const stripeHeight = canvas.height / 8;
+            for (let i = 0; i < 8; i++) {
+                ctx.fillStyle = i % 2 === 0 ? '#1b4332' : '#2d6a4f'; // Alternating lush grass
+                ctx.fillRect(0, i * stripeHeight, canvas.width, stripeHeight);
+            }
 
-            // Draw court line dividing net
-            ctx.strokeStyle = '#1f2937';
-            ctx.setLineDash([6, 6]);
+            // Draw white pitch markings
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.32)';
+            ctx.lineWidth = 1.35;
+
+            // Center circle
+            ctx.beginPath();
+            ctx.arc(canvas.width / 2, canvas.height / 2, 45, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Center dividing net
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+            ctx.setLineDash([5, 5]);
             ctx.beginPath();
             ctx.moveTo(canvas.width / 2, 0);
             ctx.lineTo(canvas.width / 2, canvas.height);
             ctx.stroke();
-            ctx.setLineDash([]); // Reset line dash
+            ctx.setLineDash([]); // Reset
 
-            // Draw Player Paddle
+            // Center kickoff spot
+            ctx.beginPath();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.arc(canvas.width / 2, canvas.height / 2, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Penalty Area Left (Player 1)
+            ctx.beginPath();
+            ctx.rect(0, (canvas.height - 130) / 2, 50, 130);
+            ctx.stroke();
+
+            // Goal Area Left
+            ctx.beginPath();
+            ctx.rect(0, (canvas.height - 60) / 2, 16, 60);
+            ctx.stroke();
+
+            // Penalty Area Right (Player 2)
+            ctx.beginPath();
+            ctx.rect(canvas.width - 50, (canvas.height - 130) / 2, 50, 130);
+            ctx.stroke();
+
+            // Goal Area Right
+            ctx.beginPath();
+            ctx.rect(canvas.width - 16, (canvas.height - 60) / 2, 16, 60);
+            ctx.stroke();
+
+            // Corner Arcs
+            ctx.beginPath();
+            ctx.arc(0, 0, 10, 0, Math.PI / 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(0, canvas.height, 10, Math.PI * 1.5, 0);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(canvas.width, 0, 10, Math.PI / 2, Math.PI);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(canvas.width, canvas.height, 10, Math.PI, Math.PI * 1.5);
+            ctx.stroke();
+
+            // Subtle goals
+            ctx.strokeStyle = '#f59e0b'; // Gold premium goals
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.rect(-2, (canvas.height - 70)/2, 6, 70);
+            ctx.rect(canvas.width - 4, (canvas.height - 70)/2, 6, 70);
+            ctx.stroke();
+
+            // 2. Draw Player Paddle
             ctx.fillStyle = '#3b82f6';
             ctx.fillRect(10, playerY, paddleWidth, paddleHeight);
 
-            // Draw computer Paddle
+            // 3. Draw Computer/P2 Paddle
             ctx.fillStyle = '#f43f5e';
             ctx.fillRect(canvas.width - paddleWidth - 10, computerY, paddleWidth, paddleHeight);
 
-            // Draw Ball
+            // 4. Draw Ball
             if (gameActive) {
-                ctx.fillStyle = '#34d399';
-                ctx.fillRect(ballX, ballY, ballSize, ballSize);
+                ctx.fillStyle = '#facc15'; // Glowing golden referee ball!
+                ctx.beginPath();
+                ctx.arc(ballX + ballSize/2, ballY + ballSize/2, ballSize/2 + 1, 0, Math.PI * 2);
+                ctx.fill();
             }
         }
 

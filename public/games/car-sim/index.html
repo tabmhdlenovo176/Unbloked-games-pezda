@@ -391,9 +391,11 @@
             }
 
             // Add dense, realistic 3D city buildings alongside the highway corridors!
-            for(let i = 0; i > -1000; i -= 80) {
-                createSceneryBuilding(-20.5, i, i);
-                createSceneryBuilding(20.5, i - 40, i + 15); // staggered positions
+            for(let i = 0; i > -1500; i -= 35) {
+                createSceneryBuilding(-19.5, i, i);
+                createSceneryBuilding(19.5, i - 15, i + 15);
+                createSceneryBuilding(-27.5, i - 10, i * 2);
+                createSceneryBuilding(27.5, i - 25, i * 3);
             }
 
             // Create Player Car (Composite Mesh) in gorgeous sports red
@@ -403,8 +405,8 @@
 
             // Spawn a rich stream of sixty-eight functional driving traffic obstacle cars in front of the player!
             obstacles = [];
-            for (let i = 1; i <= 68; i++) {
-                spawnObstacle(-40 - i * 25);
+            for (let i = 1; i <= 120; i++) {
+                spawnObstacle(-40 - i * 16);
             }
         }
 
@@ -702,7 +704,7 @@
             obs.userData = { 
                 relativeZ: zPos, 
                 lane: lane, 
-                speed: 35 + Math.random() * 25, // speed in KM/H (e.g. 35 to 60 KM/H)
+                speed: 12 + Math.random() * 12, // slow traffic cars (12 to 24 KM/H)
                 isCar: true 
             };
             scene.add(obs);
@@ -818,7 +820,7 @@
                             child.userData.relativeZ = -1500 - Math.random() * 500;
                             child.userData.lane = Math.floor(Math.random() * 3) - 1;
                             if (child.userData.isCar) {
-                                child.userData.speed = 35 + Math.random() * 25;
+                                child.userData.speed = 12 + Math.random() * 12;
                             }
                         } else {
                             child.userData.relativeZ -= 1000;
