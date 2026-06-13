@@ -178,28 +178,33 @@
                 <button id="startBtn" class="btn">DEPART DEPOT</button>
 
                 <!-- Upgrades Garage Shop -->
-                <div class="shop-container" style="margin-top: 15px; padding: 12px; background: rgba(30, 41, 59, 0.7); border: 2px solid #fbbf24; border-radius: 6px; width: 100%; max-width: 320px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.5);">
-                    <div style="font-size: 11px; font-weight: bold; color: #fbbf24; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">🔧 Rig Upgrades</div>
-                    <div style="font-size: 11px; margin-bottom: 8px; color: #e5e7eb;">WALLET: <span id="shopWalletVal" class="highlight" style="color: #34d399; font-weight: bold;">$0</span></div>
+                <div class="shop-container" style="margin-top: 10px; padding: 10px; background: rgba(30, 41, 59, 0.85); border: 2px solid #fbbf24; border-radius: 6px; width: 100%; max-width: 320px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
+                    <div style="font-size: 11px; font-weight: bold; color: #fbbf24; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; text-align: center;">🚛 Fleet Rig Garage</div>
+                    <div style="font-size: 11px; margin-bottom: 8px; color: #e5e7eb; display:flex; justify-content: space-between;">
+                        <span>CASH: <span id="shopWalletVal" class="highlight" style="color: #34d399; font-weight: bold;">$0</span></span>
+                        <span>MGMT: <span id="shopMgmtLvlText" style="color: #60a5fa; font-weight: bold;">Lvl 0</span></span>
+                    </div>
                     
-                    <div style="display: flex; flex-direction: column; gap: 6px; text-align: left;">
-                        <!-- Speed Upgrade -->
-                        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.8); padding: 5px 8px; border-radius: 4px; border: 1px solid #475569;">
-                            <div style="text-align: left;">
-                                <div style="font-size: 10px; font-weight: bold; color: #f59e0b; letter-spacing: 0.3px;">⚡ TURBOCHARGED ENGINE</div>
-                                <div style="font-size: 9px; color: #9ca3af;" id="speedLevelText">Lvl 0/5 (+0%)</div>
-                            </div>
-                            <button id="upgradeSpeedBtn" style="background: #3b82f6; border: none; color: white; padding: 4px 8px; border-radius: 3px; font-size: 9px; font-weight: bold; cursor: pointer;" onclick="buyUpgrade('speed')">$100</button>
+                    <div id="shopVehiclesList" style="display: flex; flex-direction: column; gap: 6px; text-align: left; max-height: 180px; overflow-y: auto; padding-right: 2px;">
+                        <!-- Dynamic list populated by script -->
+                    </div>
+
+                    <!-- Single upgrade button for selected vehicle's speed -->
+                    <div style="margin-top: 8px; border-top: 1px dashed #475569; padding-top: 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="text-align: left;">
+                            <div style="font-size: 9px; font-weight: bold; color: #fbbf24;">⚡ RIG SPEED BOOST</div>
+                            <div style="font-size: 9px; color: #9ca3af;" id="activeSpeedLvlText">Lvl 0/5</div>
                         </div>
-                        
-                        <!-- Management Upgrade -->
-                        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.8); padding: 5px 8px; border-radius: 4px; border: 1px solid #475569;">
-                            <div style="text-align: left;">
-                                <div style="font-size: 10px; font-weight: bold; color: #10b981; letter-spacing: 0.3px;">💼 SECTOR LOGISTICS</div>
-                                <div style="font-size: 9px; color: #9ca3af;" id="mgmtLevelText">Lvl 0/5 (+0%)</div>
-                            </div>
-                            <button id="upgradeMgmtBtn" style="background: #10b981; border: none; color: #030712; padding: 4px 8px; border-radius: 3px; font-size: 9px; font-weight: bold; cursor: pointer;" onclick="buyUpgrade('mgmt')">$120</button>
+                        <button id="activeSpeedUpgradeBtn" style="background: #3b82f6; border: none; color: white; padding: 4px 10px; border-radius: 3px; font-size: 9px; font-weight: bold; cursor: pointer; transition: background 0.2s;" onclick="upgradeSelectedVehicleSpeed()">UPGRADE</button>
+                    </div>
+
+                    <!-- General company management multiplier upgrade -->
+                    <div style="margin-top: 6px; border-top: 1px dashed #475569; padding-top: 6px; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="text-align: left;">
+                            <div style="font-size: 9px; font-weight: bold; color: #10b981;">💼 LOGISTICS DIRECT DIRECTORY</div>
+                            <div style="font-size: 9px; color: #9ca3af;" id="mgmtUpgradeText">Lvl 0/5</div>
                         </div>
+                        <button id="upgradeMgmtBtn" style="background: #10b981; border: none; color: #030712; padding: 4px 10px; border-radius: 3px; font-size: 9px; font-weight: bold; cursor: pointer;" onclick="buyMgmtUpgrade()">UPGRADE</button>
                     </div>
                 </div>
             </div>
@@ -234,81 +239,183 @@
         let speed = 0;
         let maxSpeed = 75; // Large trailer inertia
 
-        // Rig Upgrades garage status loaded from local storage
+        // Rig Upgrades/Garage status loaded from local storage
         let money = parseInt(localStorage.getItem('truck_sim_money') || '0');
-        let speedUpgradeLevel = parseInt(localStorage.getItem('truck_sim_speed_lvl') || '0');
         let mgmtUpgradeLevel = parseInt(localStorage.getItem('truck_sim_mgmt_lvl') || '0');
+        let depotsClearedInSession = 0;
 
         function updateShopUI() {
-            const speedCost = 100 * Math.pow(2, speedUpgradeLevel);
-            const mgmtCost = 120 * Math.pow(2, mgmtUpgradeLevel);
-            
+            // Load state
+            const currentVeh = parseInt(localStorage.getItem('truck_sim_current_vehicle') || '0');
+            const unlocked = JSON.parse(localStorage.getItem('truck_sim_unlocked_vehicles') || '[0]');
+            const mgmtLevel = parseInt(localStorage.getItem('truck_sim_mgmt_lvl') || '0');
+
             const walletEl = document.getElementById('shopWalletVal');
             if (walletEl) walletEl.textContent = `$${money}`;
 
-            const speedText = document.getElementById('speedLevelText');
-            if (speedText) speedText.textContent = `Lvl ${speedUpgradeLevel}/5 (+${speedUpgradeLevel * 15}% speed)`;
-            
-            const mgmtText = document.getElementById('mgmtLevelText');
-            if (mgmtText) mgmtText.textContent = `Lvl ${mgmtUpgradeLevel}/5 (+${mgmtUpgradeLevel * 25}% cash payouts)`;
+            const mText = document.getElementById('shopMgmtLvlText');
+            if (mText) mText.textContent = `Lvl ${mgmtLevel}`;
 
-            const speedBtn = document.getElementById('upgradeSpeedBtn');
+            const mgmtText = document.getElementById('mgmtUpgradeText');
+            const mgmtCost = 120 * Math.pow(2, mgmtLevel);
+            if (mgmtText) mgmtText.textContent = `Lvl ${mgmtLevel}/5 (+${mgmtLevel * 25}% payouts)`;
+
+            const mgmtBtn = document.getElementById('upgradeMgmtBtn');
+            if (mgmtBtn) {
+                if (mgmtLevel >= 5) {
+                    mgmtBtn.textContent = "MAXED";
+                    mgmtBtn.disabled = true;
+                    mgmtBtn.style.background = "#4b5563";
+                    mgmtBtn.style.cursor = "default";
+                } else {
+                    mgmtBtn.textContent = `$${mgmtCost}`;
+                    mgmtBtn.disabled = money < mgmtCost;
+                    mgmtBtn.style.background = money >= mgmtCost ? "#10b981" : "#4b5563";
+                }
+            }
+
+            // Populate the rigs list
+            const vehicleData = [
+                { id: 0, name: "Flatbed Rig 🚚", baseSpeed: 65, cost: 0 },
+                { id: 1, name: "Hauler Rig 🚛", baseSpeed: 80, cost: 150 },
+                { id: 2, name: "Titan Rig 🚜", baseSpeed: 95, cost: 400 }
+            ];
+
+            const listEl = document.getElementById('shopVehiclesList');
+            if (listEl) {
+                listEl.innerHTML = '';
+                vehicleData.forEach(veh => {
+                    const isUnlocked = unlocked.includes(veh.id);
+                    const isSelected = currentVeh === veh.id;
+                    const vehLvl = parseInt(localStorage.getItem('truck_sim_veh_' + veh.id + '_lvl') || '0');
+                    const speedNow = veh.baseSpeed + vehLvl * 8;
+
+                    const row = document.createElement('div');
+                    row.style.display = 'flex';
+                    row.style.justify = 'space-between';
+                    row.style.alignItems = 'center';
+                    row.style.background = isSelected ? 'rgba(59, 130, 246, 0.2)' : 'rgba(15, 23, 42, 0.8)';
+                    row.style.border = isSelected ? '1px solid #3b82f6' : '1px solid #475569';
+                    row.style.padding = '4px 6px';
+                    row.style.borderRadius = '4px';
+
+                    const leftSide = document.createElement('div');
+                    leftSide.style.textAlign = 'left';
+                    leftSide.innerHTML = `
+                        <div style="font-size: 9px; font-weight: bold; color: ${isSelected ? '#60a5fa' : '#f59e0b'};">${veh.name}</div>
+                        <div style="font-size: 8px; color: #9ca3af;">Base: ${veh.baseSpeed} | Lvl ${vehLvl} (Max: ${speedNow} km/h)</div>
+                    `;
+                    row.appendChild(leftSide);
+
+                    const rightBtn = document.createElement('button');
+                    rightBtn.style.padding = '3px 6px';
+                    rightBtn.style.borderRadius = '3px';
+                    rightBtn.style.fontSize = '8px';
+                    rightBtn.style.fontWeight = 'bold';
+                    rightBtn.style.border = 'none';
+
+                    if (isSelected) {
+                        rightBtn.textContent = "ACTIVE";
+                        rightBtn.style.background = "#eab308";
+                        rightBtn.style.color = "#030712";
+                        rightBtn.disabled = true;
+                        rightBtn.style.cursor = "default";
+                    } else if (isUnlocked) {
+                        rightBtn.textContent = "SELECT";
+                        rightBtn.style.background = "#10b981";
+                        rightBtn.style.color = "#030712";
+                        rightBtn.style.cursor = "pointer";
+                        rightBtn.onclick = () => selectVehicle(veh.id);
+                    } else {
+                        rightBtn.textContent = `$${veh.cost}`;
+                        rightBtn.style.background = money >= veh.cost ? "#3b82f6" : "#4b5563";
+                        rightBtn.disabled = money < veh.cost;
+                        rightBtn.style.cursor = money >= veh.cost ? "pointer" : "default";
+                        rightBtn.onclick = () => buyVehicle(veh.id, veh.cost);
+                    }
+                    row.appendChild(rightBtn);
+                    listEl.appendChild(row);
+                });
+            }
+
+            // Populate currently active vehicle's speed upgrade
+            const activeLvl = parseInt(localStorage.getItem('truck_sim_veh_' + currentVeh + '_lvl') || '0');
+            const speedLvlText = document.getElementById('activeSpeedLvlText');
+            if (speedLvlText) {
+                speedLvlText.textContent = `Lvl ${activeLvl}/5 (+${activeLvl * 8} km/h)`;
+            }
+
+            const speedCost = 100 * Math.pow(2, activeLvl);
+            const speedBtn = document.getElementById('activeSpeedUpgradeBtn');
             if (speedBtn) {
-                if (speedUpgradeLevel >= 5) {
+                if (activeLvl >= 5) {
                     speedBtn.textContent = "MAX RANK";
                     speedBtn.disabled = true;
                     speedBtn.style.background = "#4b5563";
                     speedBtn.style.cursor = "default";
                 } else {
-                    speedBtn.textContent = `$${speedCost}`;
+                    speedBtn.textContent = `+$8 km/h ($${speedCost})`;
                     speedBtn.disabled = money < speedCost;
                     speedBtn.style.background = money >= speedCost ? "#3b82f6" : "#4b5563";
                     speedBtn.style.cursor = money >= speedCost ? "pointer" : "default";
                 }
             }
 
-            const mgmtBtn = document.getElementById('upgradeMgmtBtn');
-            if (mgmtBtn) {
-                if (mgmtUpgradeLevel >= 5) {
-                    mgmtBtn.textContent = "MAX RANK";
-                    mgmtBtn.disabled = true;
-                    mgmtBtn.style.background = "#4b5563";
-                    mgmtBtn.style.color = "#ffffff";
-                    mgmtBtn.style.cursor = "default";
-                } else {
-                    mgmtBtn.textContent = `$${mgmtCost}`;
-                    mgmtBtn.disabled = money < mgmtCost;
-                    mgmtBtn.style.background = money >= mgmtCost ? "#10b981" : "#4b5563";
-                    mgmtBtn.style.cursor = money >= mgmtCost ? "pointer" : "default";
-                }
-            }
-            
             const hudCash = document.getElementById('hudCashVal');
             if (hudCash) hudCash.textContent = `$${money}`;
         }
 
-        window.buyUpgrade = function(type) {
-            initAudio(); // Initialize audio context on click
-            if (type === 'speed') {
-                const cost = 100 * Math.pow(2, speedUpgradeLevel);
-                if (money >= cost && speedUpgradeLevel < 5) {
-                    money -= cost;
-                    speedUpgradeLevel++;
-                    localStorage.setItem('truck_sim_money', money);
-                    localStorage.setItem('truck_sim_speed_lvl', speedUpgradeLevel);
-                    playSoundSync(523.25, 0.1, 'sine');
-                    setTimeout(() => playSoundSync(659.25, 0.15, 'sine'), 80);
+        window.buyVehicle = function(id, cost) {
+            initAudio();
+            if (money >= cost) {
+                money -= cost;
+                let unlocked = JSON.parse(localStorage.getItem('truck_sim_unlocked_vehicles') || '[0]');
+                if (!unlocked.includes(id)) {
+                    unlocked.push(id);
                 }
-            } else if (type === 'mgmt') {
-                const cost = 120 * Math.pow(2, mgmtUpgradeLevel);
-                if (money >= cost && mgmtUpgradeLevel < 5) {
-                    money -= cost;
-                    mgmtUpgradeLevel++;
-                    localStorage.setItem('truck_sim_money', money);
-                    localStorage.setItem('truck_sim_mgmt_lvl', mgmtUpgradeLevel);
-                    playSoundSync(523.25, 0.1, 'sine');
-                    setTimeout(() => playSoundSync(659.25, 0.15, 'sine'), 80);
-                }
+                localStorage.setItem('truck_sim_money', money);
+                localStorage.setItem('truck_sim_unlocked_vehicles', JSON.stringify(unlocked));
+                localStorage.setItem('truck_sim_current_vehicle', id);
+                playSoundSync(523.25, 0.1, 'sine');
+                setTimeout(() => playSoundSync(659.25, 0.15, 'sine'), 80);
+            }
+            updateShopUI();
+        };
+
+        window.selectVehicle = function(id) {
+            initAudio();
+            localStorage.setItem('truck_sim_current_vehicle', id);
+            playSoundSync(587.33, 0.1, 'sine');
+            updateShopUI();
+        };
+
+        window.upgradeSelectedVehicleSpeed = function() {
+            initAudio();
+            const currentVeh = parseInt(localStorage.getItem('truck_sim_current_vehicle') || '0');
+            const activeLvl = parseInt(localStorage.getItem('truck_sim_veh_' + currentVeh + '_lvl') || '0');
+            const speedCost = 100 * Math.pow(2, activeLvl);
+
+            if (money >= speedCost && activeLvl < 5) {
+                money -= speedCost;
+                localStorage.setItem('truck_sim_money', money);
+                localStorage.setItem('truck_sim_veh_' + currentVeh + '_lvl', activeLvl + 1);
+                playSoundSync(523.25, 0.1, 'sine');
+                setTimeout(() => playSoundSync(659.25, 0.15, 'sine'), 80);
+            }
+            updateShopUI();
+        };
+
+        window.buyMgmtUpgrade = function() {
+            initAudio();
+            const mgmtLevel = parseInt(localStorage.getItem('truck_sim_mgmt_lvl') || '0');
+            const mgmtCost = 120 * Math.pow(2, mgmtLevel);
+
+            if (money >= mgmtCost && mgmtLevel < 5) {
+                money -= mgmtCost;
+                localStorage.setItem('truck_sim_money', money);
+                localStorage.setItem('truck_sim_mgmt_lvl', mgmtLevel + 1);
+                playSoundSync(523.25, 0.1, 'sine');
+                setTimeout(() => playSoundSync(659.25, 0.15, 'sine'), 80);
             }
             updateShopUI();
         };
@@ -717,6 +824,9 @@
 
         function createCab() {
             const group = new THREE.Group();
+            const currentVeh = parseInt(localStorage.getItem('truck_sim_current_vehicle') || '0');
+            const cabColors = [0xe0a96d, 0xd97706, 0xb91c1c];
+            const activeColor = cabColors[currentVeh];
 
             // Wheels with realistic silver metallic rim inserts
             const whGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.5, 12);
@@ -774,10 +884,11 @@
             fuelTankR.position.x = 1.12;
             group.add(fuelTankR);
 
-            // Twin vertical Exhaust Chimney Stacks behind cabin
-            const chimneyGeo = new THREE.CylinderGeometry(0.11, 0.11, 1.9, 6);
+            // Twin vertical Exhaust Chimney Stacks behind cabin (Enlarged based on Rig tier)
+            const stackHeight = currentVeh === 2 ? 2.5 : currentVeh === 1 ? 2.1 : 1.9;
+            const chimneyGeo = new THREE.CylinderGeometry(currentVeh === 2 ? 0.16 : 0.11, currentVeh === 2 ? 0.16 : 0.11, stackHeight, 6);
             const chimneyL = new THREE.Mesh(chimneyGeo, chromeMat);
-            chimneyL.position.set(-0.95, 1.82, -0.1);
+            chimneyL.position.set(-0.95, 0.7 + stackHeight/2 + 0.1, -0.1);
             group.add(chimneyL);
 
             const chimneyR = chimneyL.clone();
@@ -792,9 +903,9 @@
             fifthWheel.position.set(0, 0.95, 0.8);
             group.add(fifthWheel);
 
-            // Head Cab Cabin Body in bright industrial yellow-orange
+            // Head Cab Cabin Body in bright industrial color
             const bodyGeo = new THREE.BoxGeometry(2.1, 1.8, 1.8);
-            const bodyMat = new THREE.MeshStandardMaterial({ color: 0xe0a96d, roughness: 0.22 });
+            const bodyMat = new THREE.MeshStandardMaterial({ color: activeColor, roughness: 0.22 });
             const b = new THREE.Mesh(bodyGeo, bodyMat);
             b.position.set(0, 1.7, -1.0);
             group.add(b);
@@ -804,6 +915,13 @@
             const grille = new THREE.Mesh(grilleGeo, chromeMat);
             grille.position.set(0, 1.3, -1.91);
             group.add(grille);
+
+            // Heavy duty front chrome bumper spoiler for elite Titan Rig
+            if (currentVeh === 2) {
+                const bumperExtension = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.3, 0.2), chromeMat);
+                bumperExtension.position.set(0, 0.65, -1.95);
+                group.add(bumperExtension);
+            }
 
             // Windows - smoky windshield look
             const wGeo = new THREE.BoxGeometry(2.12, 0.7, 0.9);
@@ -986,9 +1104,13 @@
             distance = 0;
             lateralPos = 0;
             trailerAngle = 0;
+            depotsClearedInSession = 0;
             
-            // Apply Speed upgrade limits
-            maxSpeed = 75 + speedUpgradeLevel * 8;
+            // Apply Speed upgrade limits based on selected Rig
+            const currentVeh = parseInt(localStorage.getItem('truck_sim_current_vehicle') || '0');
+            const currentLvl = parseInt(localStorage.getItem('truck_sim_veh_' + currentVeh + '_lvl') || '0');
+            const baseTruckSpeeds = [65, 80, 95];
+            maxSpeed = baseTruckSpeeds[currentVeh] + currentLvl * 8; // Each vehicle has better speed, levels add +8 KM/H
 
             initScene();
             initAudio();
@@ -1207,9 +1329,10 @@
                         playSoundSync(784, 0.2, 'sine');
                         setTimeout(() => playSoundSync(1046, 0.45, 'sine'), 120);
 
-                        // Award cargo logistics cargo payment! Upgraded by management payout factor!
+                        // Reaching an unloading station/depot awards $50 base, plus an additional $5 per new station in the session
+                        depotsClearedInSession++;
                         const mgmtMult = 1.0 + mgmtUpgradeLevel * 0.25;
-                        const earnedSalary = Math.floor(350 * mgmtMult);
+                        const earnedSalary = Math.floor((50 + (depotsClearedInSession - 1) * 5) * mgmtMult);
                         money += earnedSalary;
                         localStorage.setItem('truck_sim_money', money);
                         showMoneyAlert(earnedSalary);

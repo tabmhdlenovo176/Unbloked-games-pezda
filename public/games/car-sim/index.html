@@ -932,13 +932,13 @@
             const zSpeed = (speed * delta) / 3.6;
             const pastCurveCenter = getRoadCurveX(distance);
             
-            // Distance award cash check (every 20 meters converts to cash dynamically)
-            const beforeMeters = Math.floor(distance / 20.0);
+            // Distance award cash check (every 100 meters driven awards $1 base, scaled by management multiplier)
+            const beforeMeters = Math.floor(distance / 100.0);
             distance += zSpeed;
-            const afterMeters = Math.floor(distance / 20.0);
+            const afterMeters = Math.floor(distance / 100.0);
             if (afterMeters > beforeMeters) {
                 const mgmtMult = 1.0 + mgmtUpgradeLevel * 0.25;
-                const earnedCash = Math.floor((afterMeters - beforeMeters) * 10 * mgmtMult);
+                const earnedCash = Math.floor((afterMeters - beforeMeters) * 1 * mgmtMult);
                 money += earnedCash;
                 localStorage.setItem('car_sim_money', money);
                 showMoneyAlert(earnedCash);
