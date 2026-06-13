@@ -1,9 +1,9 @@
 [
   {
     "id": "snake",
-    "title": "Snake Classic Retro",
+    "title": "Snake Classic",
     "description": "Control a glowing pixel snake, eat glowing apples, and grow as long as possible without hitting walls or biting your own tail!",
-    "category": "Retro Arcade",
+    "category": "Arcade",
     "iframeUrl": "/games/snake/index.html",
     "thumbnail": "/games/snake/thumbnail.jpg",
     "controls": "Arrow Keys on desktop or On-Screen arrow buttons on mobile.",
@@ -14,9 +14,9 @@
   },
   {
     "id": "2048",
-    "title": "2048 Puzzle Elite",
+    "title": "2048 Puzzle",
     "description": "Slide matching neon tiles together to double their value. Use clever spatial logic to merge your way up to the ultimate 2048 tile!",
-    "category": "Puzzle & Logic",
+    "category": "Puzzle",
     "iframeUrl": "/games/2048/index.html",
     "thumbnail": "/games/2048/thumbnail.jpg",
     "controls": "Keyboard Arrows on desktop or On-Screen buttons on mobile.",
@@ -27,9 +27,9 @@
   },
   {
     "id": "brick_breaker",
-    "title": "Neon Breakout Classic",
+    "title": "Neon Breakout",
     "description": "Unleash high-speed synthwave spheres to smash rows of neon blocks! Position the sliding paddle with swift precision to keep the ball from falling.",
-    "category": "Arcade Action",
+    "category": "Arcade",
     "iframeUrl": "/games/brick-breaker/index.html",
     "thumbnail": "/games/brick-breaker/thumbnail.jpg",
     "controls": "Move Mouse or Left/Right arrows on Desktop to slide paddle.",
@@ -42,7 +42,7 @@
     "id": "pong",
     "title": "Retro Pong Arena",
     "description": "The grandfather of table tennis simulators! Face a smart computer opponent, time your bounces perfectly, and win 7 rounds to dominate.",
-    "category": "Sports Simulator",
+    "category": "Sports",
     "iframeUrl": "/games/pong/index.html",
     "thumbnail": "/games/pong/thumbnail.jpg",
     "controls": "W/S keys or Arrow Keys on Desktop, On-Screen buttons on Mobile.",
@@ -55,7 +55,7 @@
     "id": "flappy_bird",
     "title": "Flappy Pixel",
     "description": "Guide a high-energy yellow pixel jet through rows of looming retro green plumbing pipes. Time each bounce perfectly to survive the narrow gaps!",
-    "category": "Arcade Timing",
+    "category": "Arcade",
     "iframeUrl": "/games/flappy-bird/index.html",
     "thumbnail": "/games/flappy-bird/thumbnail.jpg",
     "accentColor": "#facc15",
@@ -66,7 +66,7 @@
   },
   {
     "id": "car_sim",
-    "title": "Neon Car Driver 3D",
+    "title": "Car Simulator",
     "description": "Thrill of high-speed retro racing! Speed down neon channels avoiding light grid structural pillars. Real synthetic engine sound pitches as you build up revs.",
     "category": "3D Simulators",
     "iframeUrl": "/games/car-sim/index.html",
@@ -79,7 +79,7 @@
   },
   {
     "id": "truck_sim",
-    "title": "Cargo Hauler 3D",
+    "title": "Truck Simulator",
     "description": "Precision heavy articulation truck driving simulator. Control cargo balance vector, pivot through barriers, and deliver shipping containers.",
     "category": "3D Simulators",
     "iframeUrl": "/games/truck-sim/index.html",
@@ -92,7 +92,7 @@
   },
   {
     "id": "bus_sim",
-    "title": "Transit City Bus 3D",
+    "title": "Bus Simulator",
     "description": "Guide public passenger transit buses between glowing city depots. Execute parallel parking, preserve passenger comfort limits, and manage tight schedules.",
     "category": "3D Simulators",
     "iframeUrl": "/games/bus-sim/index.html",
@@ -105,7 +105,7 @@
   },
   {
     "id": "hide_seek",
-    "title": "Neon Seeker 3D",
+    "title": "Hide and seek",
     "description": "Track, scan, and tag hidden rogue hider anomalies camouflaged behind cybernetic obstacles! Trigger your Proximity Sonar radar to compute signal ranges before power cells drain.",
     "category": "3D Simulators",
     "iframeUrl": "/games/hide-seek/index.html",
@@ -115,5 +115,18 @@
     "plays": "18.3K",
     "accentColor": "#06b6d4",
     "difficulty": "Medium to Hard"
+  },
+  {
+    "id": "basket-random",
+    "title": "Basket Random",
+    "description": "Hilarious 2v2 floppy ragdoll basketball! Press and hold jump to launch your players into the air while tilting, and release to shoot. Face an AI or challenge a friend in local 2-Player mode with slides, slippery ice courts, and extreme medicine balls!",
+    "category": "Sports",
+    "iframeUrl": "/games/basket-random/index.html",
+    "thumbnail": "/games/basket-random/thumbnail.jpg",
+    "controls": "WASD keys for Player A, Arrow keys for Player B. Charge jump and release to launch the ball.",
+    "rating": "4.9",
+    "plays": "27.4K",
+    "accentColor": "#f59e0b",
+    "difficulty": "Easy & Goofy"
   }
 ]

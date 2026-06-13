@@ -225,12 +225,12 @@
         }
 
         function draw() {
-            // Clear canvas
-            ctx.fillStyle = '#111827';
+            // Clear canvas to a beautiful light green arcade screen
+            ctx.fillStyle = '#dcfce7';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Draw grid line borders faintly
-            ctx.strokeStyle = '#1f2937';
+            // Draw grid line borders faintly with a matching green
+            ctx.strokeStyle = '#bbf7d0';
             ctx.lineWidth = 1;
             for (let i = 0; i < canvas.width; i += grid) {
                 ctx.beginPath();
@@ -246,11 +246,28 @@
 
             if (!gameActive) return;
 
-            // Draw Apple (Retro neon red pixel square with core)
-            ctx.fillStyle = '#f87171';
-            ctx.fillRect(apple.x, apple.y, grid, grid);
-            ctx.fillStyle = '#ef4444';
-            ctx.fillRect(apple.x + 4, apple.y + 4, grid - 8, grid - 8);
+            // Draw Apple (Beautiful retro red apple with a dark brown stem and green leaf)
+            ctx.fillStyle = '#b91c1c'; // Deep red shade
+            ctx.beginPath();
+            ctx.roundRect(apple.x + 2, apple.y + 4, grid - 4, grid - 6, 4);
+            ctx.fill();
+
+            ctx.fillStyle = '#ef4444'; // Bright red body
+            ctx.beginPath();
+            ctx.roundRect(apple.x + 3, apple.y + 5, grid - 6, grid - 8, 3);
+            ctx.fill();
+
+            // Specular highlighting/glistening dot
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(apple.x + 5, apple.y + 7, 2, 2);
+
+            // Stem
+            ctx.fillStyle = '#78350f'; // Wood brown
+            ctx.fillRect(apple.x + 9, apple.y + 1, 2, 3);
+
+            // Leaf
+            ctx.fillStyle = '#15803d'; // Forest green leaf
+            ctx.fillRect(apple.x + 11, apple.y + 1, 3, 2);
 
             // Update Direction from queued user input
             dx = nextDx;
@@ -289,17 +306,22 @@
                 snake.pop();
             }
 
-            // Draw Snake
+            // Draw Snake (Dark forest green theme)
             snake.forEach((cell, index) => {
-                // Gradient snake head vs body
-                ctx.fillStyle = index === 0 ? '#10b981' : '#34d399';
-                ctx.fillRect(cell.x + 1, cell.y + 1, grid - 2, grid - 2);
+                // Gradient dark green shades for Head and Body segments
+                ctx.fillStyle = index === 0 ? '#14532d' : '#166534';
+                ctx.beginPath();
+                ctx.roundRect(cell.x + 1, cell.y + 1, grid - 2, grid - 2, 5);
+                ctx.fill();
                 
-                // Head eyes
+                // Head eyes (White with dark center for expressive look)
                 if (index === 0) {
-                    ctx.fillStyle = '#0b0f19';
+                    ctx.fillStyle = '#ffffff';
                     ctx.fillRect(cell.x + 4, cell.y + 4, 3, 3);
                     ctx.fillRect(cell.x + 12, cell.y + 4, 3, 3);
+                    ctx.fillStyle = '#111827';
+                    ctx.fillRect(cell.x + 5, cell.y + 4, 1, 2);
+                    ctx.fillRect(cell.x + 13, cell.y + 4, 1, 2);
                 }
             });
         }
