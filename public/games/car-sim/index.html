@@ -146,17 +146,47 @@
     <div class="container">
         <div class="header">
             <h1>HIGHWAY RUNNER 3D</h1>
-            <div class="hud">
+            <div class="hud" style="display: flex; gap: 15px;">
+                <div>CASH: <span id="hudCashVal" style="color: #34d399; font-weight: bold;">$0</span></div>
                 <div>SPEED: <span id="speedVal" class="highlight">0</span> KM/H</div>
                 <div>DIST: <span id="distVal" class="highlight">0</span> M</div>
             </div>
         </div>
 
         <div id="canvasContainer">
-            <div id="overlay" class="overlay">
-                <h2 id="overlayTitle">HIGHWAY DRIVER 3D</h2>
-                <p id="overlaySub">Dodge highway traffic and navigate curves safely on the mountain pass route. Features realistic inertia driving physics!</p>
+            <!-- Floating money award alerts -->
+            <div id="moneyAlert" style="position: absolute; top: 15%; left: 50%; transform: translate(-50%, -50%); color: #34d399; font-size: 20px; font-weight: bold; font-family: 'JetBrains Mono', monospace; text-shadow: 0 2px 4px rgba(0,0,0,0.8); pointer-events: none; opacity: 0; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 100;">+$0</div>
+
+            <div id="overlay" class="overlay" style="padding: 15px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <h2 id="overlayTitle" style="margin-bottom: 4px;">HIGHWAY DRIVER 3D</h2>
+                <p id="overlaySub" style="margin-bottom: 10px; font-size: 11px;">Dodge highway traffic and navigate curves safely on the mountain pass route. Features realistic inertia driving physics!</p>
                 <button id="startBtn" class="btn">START GAME</button>
+
+                <!-- Upgrades Garage Shop -->
+                <div class="shop-container" style="margin-top: 15px; padding: 12px; background: rgba(30, 41, 59, 0.7); border: 2px solid #fbbf24; border-radius: 6px; width: 100%; max-width: 320px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.5);">
+                    <div style="font-size: 11px; font-weight: bold; color: #fbbf24; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">🔧 Performance Garage</div>
+                    <div style="font-size: 11px; margin-bottom: 8px; color: #e5e7eb;">WALLET: <span id="shopWalletVal" class="highlight" style="color: #34d399; font-weight: bold;">$0</span></div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 6px; text-align: left;">
+                        <!-- Speed Upgrade -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.8); padding: 5px 8px; border-radius: 4px; border: 1px solid #475569;">
+                            <div style="text-align: left;">
+                                <div style="font-size: 10px; font-weight: bold; color: #f59e0b; letter-spacing: 0.3px;">⚡ RACING ENGINE (SPEED)</div>
+                                <div style="font-size: 9px; color: #9ca3af;" id="speedLevelText">Lvl 0/5 (+0%)</div>
+                            </div>
+                            <button id="upgradeSpeedBtn" style="background: #3b82f6; border: none; color: white; padding: 4px 8px; border-radius: 3px; font-size: 9px; font-weight: bold; cursor: pointer;" onclick="buyUpgrade('speed')">$100</button>
+                        </div>
+                        
+                        <!-- Management Upgrade -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.8); padding: 5px 8px; border-radius: 4px; border: 1px solid #475569;">
+                            <div style="text-align: left;">
+                                <div style="font-size: 10px; font-weight: bold; color: #10b981; letter-spacing: 0.3px;">💼 STEERING STABILITY</div>
+                                <div style="font-size: 9px; color: #9ca3af;" id="mgmtLevelText">Lvl 0/5 (+0%)</div>
+                            </div>
+                            <button id="upgradeMgmtBtn" style="background: #10b981; border: none; color: #030712; padding: 4px 8px; border-radius: 3px; font-size: 9px; font-weight: bold; cursor: pointer;" onclick="buyUpgrade('mgmt')">$120</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -186,7 +216,124 @@
         
         let gameActive = false;
         let speed = 0;
-        const maxSpeed = 150;
+        let maxSpeed = 150;
+
+        // Upgrade status parameters loaded from local storage
+        let money = parseInt(localStorage.getItem('car_sim_money') || '0');
+        let speedUpgradeLevel = parseInt(localStorage.getItem('car_sim_speed_lvl') || '0');
+        let mgmtUpgradeLevel = parseInt(localStorage.getItem('car_sim_mgmt_lvl') || '0');
+
+        function updateShopUI() {
+            const speedCost = 100 * Math.pow(2, speedUpgradeLevel);
+            const mgmtCost = 120 * Math.pow(2, mgmtUpgradeLevel);
+            
+            const walletEl = document.getElementById('shopWalletVal');
+            if (walletEl) walletEl.textContent = `$${money}`;
+
+            const speedText = document.getElementById('speedLevelText');
+            if (speedText) speedText.textContent = `Lvl ${speedUpgradeLevel}/5 (+${speedUpgradeLevel * 15}% top speed)`;
+            
+            const mgmtText = document.getElementById('mgmtLevelText');
+            if (mgmtText) mgmtText.textContent = `Lvl ${mgmtUpgradeLevel}/5 (curve stabilizing & +25% earnings)`;
+
+            const speedBtn = document.getElementById('upgradeSpeedBtn');
+            if (speedBtn) {
+                if (speedUpgradeLevel >= 5) {
+                    speedBtn.textContent = "MAX RANK";
+                    speedBtn.disabled = true;
+                    speedBtn.style.background = "#4b5563";
+                    speedBtn.style.cursor = "default";
+                } else {
+                    speedBtn.textContent = `$${speedCost}`;
+                    speedBtn.disabled = money < speedCost;
+                    speedBtn.style.background = money >= speedCost ? "#3b82f6" : "#4b5563";
+                    speedBtn.style.cursor = money >= speedCost ? "pointer" : "default";
+                }
+            }
+
+            const mgmtBtn = document.getElementById('upgradeMgmtBtn');
+            if (mgmtBtn) {
+                if (mgmtUpgradeLevel >= 5) {
+                    mgmtBtn.textContent = "MAX RANK";
+                    mgmtBtn.disabled = true;
+                    mgmtBtn.style.background = "#4b5563";
+                    mgmtBtn.style.color = "#ffffff";
+                    mgmtBtn.style.cursor = "default";
+                } else {
+                    mgmtBtn.textContent = `$${mgmtCost}`;
+                    mgmtBtn.disabled = money < mgmtCost;
+                    mgmtBtn.style.background = money >= mgmtCost ? "#10b981" : "#4b5563";
+                    mgmtBtn.style.cursor = money >= mgmtCost ? "pointer" : "default";
+                }
+            }
+            
+            const hudCash = document.getElementById('hudCashVal');
+            if (hudCash) hudCash.textContent = `$${money}`;
+        }
+
+        window.buyUpgrade = function(type) {
+            initAudio(); // make sure audioCtx is booted if possible
+            if (type === 'speed') {
+                const cost = 100 * Math.pow(2, speedUpgradeLevel);
+                if (money >= cost && speedUpgradeLevel < 5) {
+                    money -= cost;
+                    speedUpgradeLevel++;
+                    localStorage.setItem('car_sim_money', money);
+                    localStorage.setItem('car_sim_speed_lvl', speedUpgradeLevel);
+                    // trigger chime sounds using direct temp oscillator
+                    if (audioCtx) {
+                        try {
+                            const tempOsc = audioCtx.createOscillator();
+                            const tempGain = audioCtx.createGain();
+                            tempOsc.type = 'sine';
+                            tempOsc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+                            tempGain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                            tempGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                            tempOsc.connect(tempGain);
+                            tempGain.connect(audioCtx.destination);
+                            tempOsc.start();
+                            tempOsc.stop(audioCtx.currentTime + 0.12);
+                        } catch(e){}
+                    }
+                }
+            } else if (type === 'mgmt') {
+                const cost = 120 * Math.pow(2, mgmtUpgradeLevel);
+                if (money >= cost && mgmtUpgradeLevel < 5) {
+                    money -= cost;
+                    mgmtUpgradeLevel++;
+                    localStorage.setItem('car_sim_money', money);
+                    localStorage.setItem('car_sim_mgmt_lvl', mgmtUpgradeLevel);
+                    if (audioCtx) {
+                        try {
+                            const tempOsc = audioCtx.createOscillator();
+                            const tempGain = audioCtx.createGain();
+                            tempOsc.type = 'sine';
+                            tempOsc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+                            tempGain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                            tempGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                            tempOsc.connect(tempGain);
+                            tempGain.connect(audioCtx.destination);
+                            tempOsc.start();
+                            tempOsc.stop(audioCtx.currentTime + 0.12);
+                        } catch(e){}
+                    }
+                }
+            }
+            updateShopUI();
+        };
+
+        function showMoneyAlert(amount) {
+            const alertEl = document.getElementById('moneyAlert');
+            if (alertEl) {
+                alertEl.textContent = `+$${amount}`;
+                alertEl.style.opacity = '1';
+                alertEl.style.transform = 'translate(-50%, -60%) scale(1.2)';
+                setTimeout(() => {
+                    alertEl.style.opacity = '0';
+                    alertEl.style.transform = 'translate(-50%, -50%) scale(1)';
+                }, 1200);
+            }
+        }
         let distance = 0;
         let lateralPos = 0; // -10 to 10
         let clock = new THREE.Clock();
@@ -715,10 +862,18 @@
             speed = 0;
             distance = 0;
             lateralPos = 0;
+
+            // Apply Upgrades on startup
+            maxSpeed = 150 + speedUpgradeLevel * 15;
+
             initScene();
             initAudio();
             gameActive = true;
             overlay.style.display = 'none';
+
+            // Sync Cash display on HUD
+            const hudCash = document.getElementById('hudCashVal');
+            if (hudCash) hudCash.textContent = `$${money}`;
         }
 
         function handleInput(delta) {
@@ -764,9 +919,10 @@
             gameActive = false;
             stopAudio();
             overlayTitle.textContent = reason || "CRASH DETECTED";
-            overlaySub.textContent = `You survived ${Math.floor(distance)} meters before total structural impact. Watch out for curves!`;
+            overlaySub.textContent = `You survived ${Math.floor(distance)} meters! Upgraded your racing garage and stored cash funds!`;
             startBtn.textContent = "RE-IGNITION";
             overlay.style.display = 'flex';
+            updateShopUI(); // Refresh shop balance and ranks on crash!
         }
 
         function updateScene(delta) {
@@ -775,12 +931,28 @@
             // Travel speed delta calculations
             const zSpeed = (speed * delta) / 3.6;
             const pastCurveCenter = getRoadCurveX(distance);
+            
+            // Distance award cash check (every 20 meters converts to cash dynamically)
+            const beforeMeters = Math.floor(distance / 20.0);
             distance += zSpeed;
+            const afterMeters = Math.floor(distance / 20.0);
+            if (afterMeters > beforeMeters) {
+                const mgmtMult = 1.0 + mgmtUpgradeLevel * 0.25;
+                const earnedCash = Math.floor((afterMeters - beforeMeters) * 10 * mgmtMult);
+                money += earnedCash;
+                localStorage.setItem('car_sim_money', money);
+                showMoneyAlert(earnedCash);
+                const hudCash = document.getElementById('hudCashVal');
+                if (hudCash) hudCash.textContent = `$${money}`;
+            }
+
             const currentCurveCenter = getRoadCurveX(distance);
 
             // Centrifugal drag rate of curve change pushes you out!
             const curveChange = currentCurveCenter - pastCurveCenter;
-            lateralPos -= curveChange * (0.22 + (speed / maxSpeed) * 0.75);
+            // Steering/Management stability reduces side friction push by 15% per upgrade level!
+            const driftFrictionFactor = 1.0 - (mgmtUpgradeLevel * 0.15);
+            lateralPos -= curveChange * (0.22 + (speed / maxSpeed) * 0.75) * driftFrictionFactor;
 
             // Update player car position
             playerCar.position.x = currentCurveCenter + lateralPos;
@@ -909,6 +1081,7 @@
         });
 
         // Initialize frame
+        updateShopUI(); // Load initial Shop garage layout and Wallet balance!
         initScene();
         animate();
     </script>

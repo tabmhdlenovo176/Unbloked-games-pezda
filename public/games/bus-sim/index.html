@@ -146,10 +146,11 @@
     <div class="container">
         <div class="header">
             <h1>METRO TRANSIT 3D</h1>
-            <div class="hud">
-                <div class="hud-row" style="display:flex; gap:15px;">
+            <div class="hud" style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+                <div class="hud-row" style="display:flex; gap:12px; margin-bottom: 2px;">
+                    <div>CASH: <span id="hudCashVal" style="color: #34d399; font-weight: bold;">$0</span></div>
                     <div>SCORE: <span id="scoreVal" class="highlight">0</span></div>
-                    <div>TIME LEFT: <span id="timeVal" class="highlight">45s</span></div>
+                    <div>TIME: <span id="timeVal" class="highlight">45s</span></div>
                 </div>
                 <div id="busStopSign" style="font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; color: #60a5fa;">
                     NEXT: <span id="nextStopNameVal" style="color: #fbbf24;">DEPARTING DEPOT...</span>
@@ -158,10 +159,39 @@
         </div>
 
         <div id="canvasContainer">
-            <div id="overlay" class="overlay">
-                <h2 id="overlayTitle">BUS SIMULATOR 3D</h2>
-                <p id="overlaySub">Safely park at city bus stop terminals. Maintain schedule times and pick up awaiting commuters!</p>
+            <!-- Floating money award alerts -->
+            <div id="moneyAlert" style="position: absolute; top: 15%; left: 50%; transform: translate(-50%, -50%); color: #34d399; font-size: 20px; font-weight: bold; font-family: 'JetBrains Mono', monospace; text-shadow: 0 2px 4px rgba(0,0,0,0.8); pointer-events: none; opacity: 0; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 100;">+$0</div>
+
+            <div id="overlay" class="overlay" style="padding: 15px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <h2 id="overlayTitle" style="margin-bottom: 4px;">BUS SIMULATOR 3D</h2>
+                <p id="overlaySub" style="margin-bottom: 10px; font-size: 11px;">Safely park at city bus stop terminals. Maintain schedule times and pick up awaiting commuters!</p>
                 <button id="startBtn" class="btn">START TRANSIT ROUTE</button>
+
+                <!-- Upgrades Garage Shop -->
+                <div class="shop-container" style="margin-top: 15px; padding: 12px; background: rgba(30, 41, 59, 0.7); border: 2px solid #fbbf24; border-radius: 6px; width: 100%; max-width: 320px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.5);">
+                    <div style="font-size: 11px; font-weight: bold; color: #fbbf24; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">🔧 Fleet Upgrades</div>
+                    <div style="font-size: 11px; margin-bottom: 8px; color: #e5e7eb;">WALLET: <span id="shopWalletVal" class="highlight" style="color: #34d399; font-weight: bold;">$0</span></div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 6px; text-align: left;">
+                        <!-- Speed Upgrade -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.8); padding: 5px 8px; border-radius: 4px; border: 1px solid #475569;">
+                            <div style="text-align: left;">
+                                <div style="font-size: 10px; font-weight: bold; color: #f59e0b; letter-spacing: 0.3px;">⚡ BUS SPEED BOOST</div>
+                                <div style="font-size: 9px; color: #9ca3af;" id="speedLevelText">Lvl 0/5 (+0%)</div>
+                            </div>
+                            <button id="upgradeSpeedBtn" style="background: #3b82f6; border: none; color: white; padding: 4px 8px; border-radius: 3px; font-size: 9px; font-weight: bold; cursor: pointer;" onclick="buyUpgrade('speed')">$100</button>
+                        </div>
+                        
+                        <!-- Management Upgrade -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.8); padding: 5px 8px; border-radius: 4px; border: 1px solid #475569;">
+                            <div style="text-align: left;">
+                                <div style="font-size: 10px; font-weight: bold; color: #10b981; letter-spacing: 0.3px;">💼 METRO MANAGEMENT</div>
+                                <div style="font-size: 9px; color: #9ca3af;" id="mgmtLevelText">Lvl 0/5 (+0%)</div>
+                            </div>
+                            <button id="upgradeMgmtBtn" style="background: #10b981; border: none; color: #030712; padding: 4px 8px; border-radius: 3px; font-size: 9px; font-weight: bold; cursor: pointer;" onclick="buyUpgrade('mgmt')">$120</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -192,7 +222,99 @@
         
         let gameActive = false;
         let speed = 0;
-        const maxSpeed = 65; // Safe city transport limits
+        let maxSpeed = 65; // Safe city transport limits
+
+        // Upgrades persistent state loaded from local storage
+        let money = parseInt(localStorage.getItem('bus_sim_money') || '0');
+        let speedUpgradeLevel = parseInt(localStorage.getItem('bus_sim_speed_lvl') || '0');
+        let mgmtUpgradeLevel = parseInt(localStorage.getItem('bus_sim_mgmt_lvl') || '0');
+
+        function updateShopUI() {
+            const speedCost = 100 * Math.pow(2, speedUpgradeLevel);
+            const mgmtCost = 120 * Math.pow(2, mgmtUpgradeLevel);
+            
+            const walletEl = document.getElementById('shopWalletVal');
+            if (walletEl) walletEl.textContent = `$${money}`;
+
+            const speedText = document.getElementById('speedLevelText');
+            if (speedText) speedText.textContent = `Lvl ${speedUpgradeLevel}/5 (+${speedUpgradeLevel * 15}% speed)`;
+            
+            const mgmtText = document.getElementById('mgmtLevelText');
+            if (mgmtText) mgmtText.textContent = `Lvl ${mgmtUpgradeLevel}/5 (+${mgmtUpgradeLevel * 25}% cash & time bonus)`;
+
+            const speedBtn = document.getElementById('upgradeSpeedBtn');
+            if (speedBtn) {
+                if (speedUpgradeLevel >= 5) {
+                    speedBtn.textContent = "MAX RANK";
+                    speedBtn.disabled = true;
+                    speedBtn.style.background = "#4b5563";
+                    speedBtn.style.cursor = "default";
+                } else {
+                    speedBtn.textContent = `$${speedCost}`;
+                    speedBtn.disabled = money < speedCost;
+                    speedBtn.style.background = money >= speedCost ? "#3b82f6" : "#4b5563";
+                    speedBtn.style.cursor = money >= speedCost ? "pointer" : "default";
+                }
+            }
+
+            const mgmtBtn = document.getElementById('upgradeMgmtBtn');
+            if (mgmtBtn) {
+                if (mgmtUpgradeLevel >= 5) {
+                    mgmtBtn.textContent = "MAX RANK";
+                    mgmtBtn.disabled = true;
+                    mgmtBtn.style.background = "#4b5563";
+                    mgmtBtn.style.color = "#ffffff";
+                    mgmtBtn.style.cursor = "default";
+                } else {
+                    mgmtBtn.textContent = `$${mgmtCost}`;
+                    mgmtBtn.disabled = money < mgmtCost;
+                    mgmtBtn.style.background = money >= mgmtCost ? "#10b981" : "#4b5563";
+                    mgmtBtn.style.cursor = money >= mgmtCost ? "pointer" : "default";
+                }
+            }
+            
+            const hudCash = document.getElementById('hudCashVal');
+            if (hudCash) hudCash.textContent = `$${money}`;
+        }
+
+        window.buyUpgrade = function(type) {
+            initAudio(); // Boot sound contexts if possible on user click
+            if (type === 'speed') {
+                const cost = 100 * Math.pow(2, speedUpgradeLevel);
+                if (money >= cost && speedUpgradeLevel < 5) {
+                    money -= cost;
+                    speedUpgradeLevel++;
+                    localStorage.setItem('bus_sim_money', money);
+                    localStorage.setItem('bus_sim_speed_lvl', speedUpgradeLevel);
+                    playSoundSync(523.25, 0.1, 'sine');
+                    setTimeout(() => playSoundSync(659.25, 0.15, 'sine'), 80);
+                }
+            } else if (type === 'mgmt') {
+                const cost = 120 * Math.pow(2, mgmtUpgradeLevel);
+                if (money >= cost && mgmtUpgradeLevel < 5) {
+                    money -= cost;
+                    mgmtUpgradeLevel++;
+                    localStorage.setItem('bus_sim_money', money);
+                    localStorage.setItem('bus_sim_mgmt_lvl', mgmtUpgradeLevel);
+                    playSoundSync(523.25, 0.1, 'sine');
+                    setTimeout(() => playSoundSync(659.25, 0.15, 'sine'), 80);
+                }
+            }
+            updateShopUI();
+        };
+
+        function showMoneyAlert(amount) {
+            const alertEl = document.getElementById('moneyAlert');
+            if (alertEl) {
+                alertEl.textContent = `+$${amount}`;
+                alertEl.style.opacity = '1';
+                alertEl.style.transform = 'translate(-50%, -60%) scale(1.2)';
+                setTimeout(() => {
+                    alertEl.style.opacity = '0';
+                    alertEl.style.transform = 'translate(-50%, -50%) scale(1)';
+                }, 1200);
+            }
+        }
         let score = 0;
         let timeLeft = 45;
         let lateralPos = 0;
@@ -903,13 +1025,21 @@
         function restartGame() {
             speed = 0;
             score = 0;
-            timeLeft = 45;
+            // Upgrades speed and management
+            const mgmtBonus = mgmtUpgradeLevel * 4;
+            timeLeft = 45 + mgmtBonus;
+            maxSpeed = 65 + speedUpgradeLevel * 8;
+
             lateralPos = 0;
             distance = 0;
             initScene();
             initAudio();
             gameActive = true;
             overlay.style.display = 'none';
+
+            // Sync cash display on HUD
+            const hudCash = document.getElementById('hudCashVal');
+            if (hudCash) hudCash.textContent = `$${money}`;
         }
 
         function handleInput(delta) {
@@ -1082,6 +1212,15 @@
                     
                     const scoreReward = boardingTargetStation.userData.data.count * 120;
                     score += scoreReward;
+                    
+                    // Cash earning with Management/Efficiency multiplier
+                    const baseCommutersArr = boardingTargetStation.userData.data.count;
+                    const mgmtMult = 1.0 + mgmtUpgradeLevel * 0.25;
+                    const earnedCash = Math.floor(baseCommutersArr * 30 * mgmtMult);
+                    money += earnedCash;
+                    localStorage.setItem('bus_sim_money', money);
+                    
+                    showMoneyAlert(earnedCash);
                     playSoundSync(880, 0.35, 'sine');
                     
                     scene.remove(boardingTargetStation);
@@ -1110,9 +1249,10 @@
             gameActive = false;
             stopAudio();
             overlayTitle.textContent = titleText;
-            overlaySub.textContent = `Transit operation finished. Your score: ${score} points! High ratings achieved from your local city line passengers!`;
+            overlaySub.textContent = `Transit operation finished. Your score: ${score} points! Upgraded your fleet and accumulated transit revenue!`;
             startBtn.textContent = "DEPART AGAIN";
             overlay.style.display = 'flex';
+            updateShopUI(); // Refresh shop contents and balance on game over!
         }
 
         function animate() {
@@ -1163,6 +1303,7 @@
             restartGame();
         });
 
+        updateShopUI(); // Initialize Shop garage and account balance displays!
         initScene();
         animate();
     </script>

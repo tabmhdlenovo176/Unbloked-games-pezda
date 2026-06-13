@@ -758,23 +758,22 @@
             jump() {
                 if (this.cooldown > 0) return;
                 
-                // Ground check
-                const footAngleCos = Math.sin(this.angle) * (this.torsoHeight / 2);
-                const checkFootY = this.y + Math.cos(this.angle) * (this.torsoHeight / 2);
+                // Generous ground and height check so players never get 'stuck' or can't jump
+                const halfTorso = this.torsoHeight / 2;
+                const footY = this.y + Math.cos(this.angle) * halfTorso;
                 
-                // Allow jumping if near ground or simple double jump
-                if (checkFootY > groundLevel - 20) {
-                    this.vy = -7.5 - Math.random() * 2.5; // Jump height
+                if (footY > groundLevel - 50 || this.y > groundLevel - halfTorso - 50) {
+                    this.vy = -8.0 - Math.random() * 2.5; // Stronger, more snappy jump height
                     
-                    // Horizontal forward thrust towards opponent
+                    // Snappy forward thrust towards the opposing team
                     const pushDirection = (this.team === "red") ? 1 : -1;
-                    this.vx += pushDirection * (2.8 + Math.random() * 1.5);
+                    this.vx += pushDirection * (3.0 + Math.random() * 1.5);
                     
-                    // Complete postural control: no wild rotation on jump start!
+                    // Better body stabilization right at jump start
                     this.vangle = 0;
                     this.angle = 0;
                     
-                    this.cooldown = 12; // brief jump spam shield
+                    this.cooldown = 2; // Minimal spam shield (just 2 frames instead of 12) for rapid responsive jumping!
                     if (this.team === 'red') sounds.jump();
                 }
             }
@@ -786,6 +785,12 @@
                 // Floor collision variables for checking grounded state
                 const halfTorso = this.torsoHeight / 2;
                 const footY = this.y + Math.cos(this.angle) * halfTorso;
+
+                // Eliminate jump lag: if user is holding the jump state when touching the ground, jump again immediately!
+                if (this.jumpPressed && this.cooldown === 0 && footY >= groundLevel - 18) {
+                    this.jump();
+                }
+
                 // Strict ground check: must be upright, close to floor, and relatively still to sway
                 const isGrounded = (footY >= groundLevel - 10) && 
                                    (Math.abs(this.vy) < 0.8) && 
@@ -1877,6 +1882,37 @@
             }
         }
 
+        // HELPERS TO TRACK FULL PHYSICAL BODY CONTACT WITH THE BALL
+        function isPlayerTouchingBall(p) {
+            // 1. Hand check with cozy tolerance
+            const hand = p.getHandPos();
+            if (Math.hypot(hand.x - ball.x, hand.y - ball.y) < 32) return true;
+
+            // 2. Head check (with 3D sphere radius bounds)
+            const headYOffset = -p.torsoHeight / 2 - p.headRadius - 1;
+            const headX = p.x - Math.sin(p.angle) * headYOffset;
+            const headY = p.y + Math.cos(p.angle) * headYOffset;
+            if (Math.hypot(headX - ball.x, headY - ball.y) < (p.headRadius + 22)) return true;
+
+            // 3. Torso / Legs line-segment check (neck all the way to feet)
+            const neckX = p.x - Math.sin(p.angle) * (-p.torsoHeight / 2);
+            const neckY = p.y + Math.cos(p.angle) * (-p.torsoHeight / 2);
+            const footX = p.x - Math.sin(p.angle) * (p.torsoHeight / 2);
+            const footY = p.y + Math.cos(p.angle) * (p.torsoHeight / 2);
+
+            const dx = footX - neckX;
+            const dy = footY - neckY;
+            const lenSq = dx * dx + dy * dy;
+            const t = lenSq === 0 ? 0 : Math.max(0, Math.min(1, ((ball.x - neckX) * dx + (ball.y - neckY) * dy) / lenSq));
+            
+            const closestX = neckX + t * dx;
+            const closestY = neckY + t * dy;
+
+            if (Math.hypot(closestX - ball.x, closestY - ball.y) < 28) return true;
+
+            return false;
+        }
+
         // GRAB STEALS DETECTOR SOLVER
         function solvePossession() {
             if (roundOver) return;
@@ -1912,12 +1948,10 @@
                 }
 
                 // Stealing collision checker
-                // If opponent player touch possesed ball hand directly, they capture it!
+                // If opponent player touches the ball with any part of their body, they grab and capture it!
                 players.forEach(p => {
                     if (p.team !== ball.possessor.team) {
-                        const oppHand = p.getHandPos();
-                        const distToOpp = Math.hypot(oppHand.x - ball.x, oppHand.y - ball.y);
-                        if (distToOpp < 24) {
+                        if (isPlayerTouchingBall(p)) {
                             ball.possessor = p;
                             ball.lastTeamTouch = p.team;
                             sounds.steal();
@@ -1929,10 +1963,9 @@
             }
 
             // Free ball possession acquisition tracker
+            // If any player's head, body, or hands touch the ball, they possess it immediately!
             players.forEach(p => {
-                const hand = p.getHandPos();
-                const distToBall = Math.hypot(hand.x - ball.x, hand.y - ball.y);
-                if (distToBall < 26) {
+                if (isPlayerTouchingBall(p)) {
                     ball.possessor = p;
                     ball.lastTeamTouch = p.team;
                     sounds.steal();
